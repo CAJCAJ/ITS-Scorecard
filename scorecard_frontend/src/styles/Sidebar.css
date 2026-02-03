@@ -3,58 +3,71 @@
    ========================= */
 
 .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 200px;
-    height: 100vh;
-    background: #2c3e50;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: 1rem 0.5rem;
-    transition: width 0.3s ease;
-    z-index: 100;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 100vh;
+  background: #1f2d3d; /* slightly deeper than before */
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 14px 10px;
+  transition: width 0.25s ease;
+  z-index: 100;
+  border-right: 1px solid rgba(255,255,255,0.08);
 }
 
-    /* Collapsed sidebar */
-    .sidebar.collapsed {
-        width: 60px;
-    }
+.sidebar.collapsed {
+  width: 60px;
+}
 
 /* =========================
-   🧭 SIDEBAR HEADER
+   🧭 HEADER
    ========================= */
 
 .sidebar-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 0.5rem;
-    margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 12px 6px;
+  margin-bottom: 10px;
 }
 
 .collapse-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 1.25rem;
-    cursor: pointer;
-    padding: 0;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #fff;
+  font-size: 1.05rem;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s ease, transform 0.1s ease;
 }
 
-/* Title */
+.collapse-btn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.collapse-btn:active {
+  transform: scale(0.98);
+}
+
 .sidebar-title {
-    font-size: 1.25rem;
-    font-weight: bold;
-    white-space: nowrap;
-    margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  margin: 0;
+  opacity: 0.95;
 }
 
-/* Hide title when collapsed */
 .sidebar.collapsed .sidebar-title {
-    display: none;
+  display: none;
 }
 
 /* =========================
@@ -62,50 +75,67 @@
    ========================= */
 
 .sidebar-menu {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    flex: 1;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
 }
 
-    /* Menu item wrapper */
-    .sidebar-menu li {
-        margin: 0.4rem 0;
-    }
+.sidebar-menu li {
+  margin: 6px 0;
+}
 
-        /* Links & collapsible items */
-        .sidebar-link,
-        .sidebar-menu li a,
-        .sidebar-menu li.collapsible {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: #fff;
-            text-decoration: none;
-            padding: 0.5rem;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
+/* Links & collapsible items */
+.sidebar-link,
+.sidebar-menu li a,
+.sidebar-menu li.collapsible {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255,255,255,0.92);
+  text-decoration: none;
+  padding: 10px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.08s ease;
+  position: relative;
+}
 
-    /* Icon */
-    .sidebar-menu .icon {
-        flex-shrink: 0;
-        font-size: 1.1rem;
-        width: 24px;
-        text-align: center;
-    }
+/* Icons */
+.sidebar-menu .icon {
+  flex-shrink: 0;
+  font-size: 1.05rem;
+  width: 24px;
+  text-align: center;
+  opacity: 0.95;
+}
 
-/* Link text */
 .link-text {
-    white-space: nowrap;
+  white-space: nowrap;
 }
 
-/* Active & hover */
+/* Hover */
 .sidebar-menu li a:hover,
-.sidebar-menu li a.active,
 .sidebar-link:hover {
-    background: #1976d2;
+  background: rgba(255,255,255,0.10);
+}
+
+/* Active state (NavLink adds .active) */
+.sidebar-menu li a.active {
+  background: rgba(0, 87, 255, 0.18);
+  color: #fff;
+}
+
+/* Left accent on active */
+.sidebar-menu li a.active::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #0057ff, #00c6ff);
 }
 
 /* =========================
@@ -113,13 +143,19 @@
    ========================= */
 
 .sidebar.collapsed .link-text {
-    display: none;
+  display: none;
 }
 
 .sidebar.collapsed .sidebar-menu li a,
 .sidebar.collapsed .sidebar-menu li.collapsible {
-    justify-content: center;
-    padding: 0.75rem 0;
+  justify-content: center;
+  padding: 12px 0;
+  border-radius: 14px;
+}
+
+/* In collapsed mode, remove active left bar (looks weird without text) */
+.sidebar.collapsed .sidebar-menu li a.active::before {
+  display: none;
 }
 
 /* =========================
@@ -127,50 +163,74 @@
    ========================= */
 
 .sidebar-submenu {
-    list-style: none;
-    padding-left: 1.25rem;
-    margin-top: 0.4rem;
+  list-style: none;
+  padding-left: 12px;
+  margin: 6px 0 10px 0;
+  border-left: 1px dashed rgba(255,255,255,0.15);
 }
 
-    .sidebar-submenu li {
-        margin: 0.25rem 0;
-    }
+.sidebar-submenu li {
+  margin: 6px 0;
+}
 
-    .sidebar-submenu .icon.small {
-        font-size: 0.85rem;
-        width: 16px;
-    }
+.sidebar-submenu li a {
+  background: rgba(255,255,255,0.04);
+  padding: 9px 10px;
+  border-radius: 12px;
+}
+
+.sidebar-submenu li a:hover {
+  background: rgba(255,255,255,0.10);
+}
+
+.sidebar-submenu .icon.small {
+  font-size: 0.9rem;
+  width: 18px;
+}
 
 /* =========================
    🔐 LOGOUT SECTION
    ========================= */
 
 .sidebar-logout {
-    padding: 0.75rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 10px 6px 6px 6px;
+  border-top: 1px solid rgba(255,255,255,0.10);
 }
 
-/* Logout button */
 .logout-btn {
-    width: 100%;
-    background: none;
-    border: none;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.2s ease;
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.08s ease;
 }
 
-    /* Logout hover */
-    .logout-btn:hover {
-        background: #c0392b;
-    }
+.logout-btn:hover {
+  background: rgba(220, 53, 69, 0.75);
+}
 
-/* Center icon when collapsed */
+.logout-btn:active {
+  transform: scale(0.99);
+}
+
 .sidebar.collapsed .logout-btn {
-    justify-content: center;
+  justify-content: center;
+  padding: 12px 0;
+  gap: 0;
+}
+
+/* =========================
+   📱 SMALL SCREEN HELP
+   ========================= */
+
+@media (max-width: 700px) {
+  .sidebar {
+    width: 190px;
+  }
 }
