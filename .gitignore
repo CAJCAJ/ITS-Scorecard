@@ -13,3 +13,9 @@ venv/
 # IDE
 .vs/
 .vscode/
+
+# Build output
+build/
+
+# Vercel
+.vercel/
