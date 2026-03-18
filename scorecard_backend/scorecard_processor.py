@@ -1,9 +1,3 @@
-import os
-import pandas as pd
-
-# Constants
-SCORECARD_DIR = "C:\\Windows\\System32\\scorecard\\scorecard_backend\\data\\states"
-
 ITS_METRICS = [
     {"keywords": ["camera", "sensors", "lidar", "radar"], "weight": 0.2},
     {"keywords": ["signal", "management", "traffic light", "actuated"], "weight": 0.2},
@@ -28,9 +22,11 @@ def grade_score(score):
     return "E"
 
 
-def analyze_state(filepath):
-    df = pd.read_excel(filepath)
-    text_data = df.astype(str).apply(lambda x: ' '.join(x), axis=1).str.lower().str.cat(sep=' ')
+def analyze_state_data(records):
+    text_data = ' '.join(
+        ' '.join(str(v) for v in record.values())
+        for record in records
+    ).lower()
 
     score = 0
     details = []
