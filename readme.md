@@ -30,6 +30,8 @@ Charting: Uses react-chartjs-2 for most charts, with Recharts being an optional 
 
 react-simple-maps: For rendering the interactive U.S. map.
 
+mapbox-gl: For interactive map rendering.
+
 Axios (or fetch): For making API calls to the backend.
 
 Material UI (MUI): For UI components.
