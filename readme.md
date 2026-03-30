@@ -30,6 +30,8 @@ Charting: Uses react-chartjs-2 for most charts, with Recharts being an optional 
 
 react-simple-maps: For rendering the interactive U.S. map.
 
+mapbox-gl: For interactive map rendering.
+
 Axios (or fetch): For making API calls to the backend.
 
 Material UI (MUI): For UI components.
@@ -42,9 +44,18 @@ Flask, Flask-Cors: A micro-framework for building the API and handling cross-ori
 
 pandas, openpyxl: Python libraries for data processing and reading Excel files.
 
+supabase (2.7.0): Python client for querying the Supabase database.
+
 Data Storage
 
-The application uses Excel files (.xlsx) as its primary data source. No external database is required.
+All legislative data is stored in Supabase (PostgreSQL). Four tables are used:
+
+- tx_bills — Categorized legislation bills for Texas
+- nj_bills — Categorized legislation bills for New Jersey
+- tx_state_data — Detailed scorecard data for Texas
+- nj_state_data — Detailed scorecard data for New Jersey
+
+Each table has the following columns: id, title, bill_info, author, version, date, vehicle_type, state, synopsis, category
 
 Getting Started
 
@@ -80,11 +91,34 @@ Backend (Python)
 
 cd ../scorecard_backend
 
-Install 
-Flask==2.3.3
-Flask-Cors==3.0.10
-pandas==2.1.4
-Openpyxl==3.1.2
+pip install flask flask-cors pandas openpyxl "supabase==2.7.0" websockets
+
+> Important: Do NOT install the latest supabase (2.28+). It requires C++ build tools to compile pyiceberg.
+> Use supabase==2.7.0 specifically.
+
+Full package list:
+- flask
+- flask-cors
+- pandas
+- openpyxl
+- supabase==2.7.0
+- websockets
+
+Supabase Setup (one-time)
+
+Before running the backend, ensure your Supabase tables are created and data is seeded:
+
+1. Create the four tables (tx_bills, nj_bills, tx_state_data, nj_state_data) in Supabase.
+2. Disable Row Level Security on each table:
+
+   alter table tx_bills disable row level security;
+   alter table nj_bills disable row level security;
+   alter table tx_state_data disable row level security;
+   alter table nj_state_data disable row level security;
+
+3. Run the seeding script from the project root:
+
+   python scorecard_backend/upload_to_supabase.py
 
 
 3. Run the Application

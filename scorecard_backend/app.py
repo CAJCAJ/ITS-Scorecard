@@ -1,46 +1,116 @@
 from flask import Flask, jsonify, request
-import pandas as pd
-import os
 from flask_cors import CORS
-from scorecard_processor import analyze_state  # ✅ Import the new module
+from supabase import create_client
+from scorecard_processor import analyze_state_data
 
 app = Flask(__name__)
 CORS(app)
 
-DATA_FOLDER = "C:\\Users\\sgado\\scorecard 1.1\\scorecard_backend\\data\\states"
-data_cache = {}
+SUPABASE_URL = "https://ivustulljgjkhpikzitj.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2dXN0dWxsamdqa2hwaWt6aXRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MTA0ODksImV4cCI6MjA4OTM4NjQ4OX0.0sz-uap_Xvv9v6cpXdfsVyGa5fqfo_2ATr27aJ7eM0M"
 
-def get_available_states():
-    return [file.replace(".xlsx", "") for file in os.listdir(DATA_FOLDER) if file.endswith(".xlsx")]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def load_data():
-    global data_cache
-    data_cache = {}
-    for file in os.listdir(DATA_FOLDER):
-        if file.endswith(".xlsx"):
-            state_name = file.replace(".xlsx", "")
-            df = pd.read_excel(os.path.join(DATA_FOLDER, file))
-            data_cache[state_name] = df.to_dict(orient="records")
+# Maps state name to (bills table, state data table)
+STATE_TABLE_MAP = {
+    "Texas": ("tx_bills", "tx_state_data"),
+    "New Jersey": ("nj_bills", "nj_state_data"),
+}
 
-load_data()
+def to_frontend(record):
+    """Convert Supabase snake_case keys back to the Title Case keys the frontend expects."""
+    return {
+        "Title": record.get("title"),
+        "Bill Info": record.get("bill_info"),
+        "Author": record.get("author"),
+        "Version": record.get("version"),
+        "Date": record.get("date"),
+        "Vehicle Type": record.get("vehicle_type"),
+        "State": record.get("state"),
+        "Synopsis": record.get("synopsis"),
+        "Category": record.get("category"),
+    }
+
+def fetch_all(table):
+    all_data = []
+    page = 0
+    page_size = 1000
+    while True:
+        result = supabase.table(table).select("*").range(page * page_size, (page + 1) * page_size - 1).execute()
+        all_data.extend(result.data)
+        if len(result.data) < page_size:
+            break
+        page += 1
+    return all_data
+
+@app.route('/api/bills', methods=['GET'])
+def get_bills():
+    state = request.args.get('state', '')
+    version = request.args.get('version', '')
+    category = request.args.get('category', '')
+    vehicle_type = request.args.get('vehicleType', '')
+    author = request.args.get('author', '')
+    keyword = request.args.get('keyword', '')
+
+    if state:
+        tables = [STATE_TABLE_MAP[state][0]] if state in STATE_TABLE_MAP else []
+    else:
+        tables = [v[0] for v in STATE_TABLE_MAP.values()]
+
+    result = []
+    for table in tables:
+        result.extend(fetch_all(table))
+
+    if version:
+        result = [b for b in result if str(b.get('version', '') or '').strip().lower() == version.strip().lower()]
+    if category:
+        result = [b for b in result if str(b.get('category', '') or '').strip().lower() == category.strip().lower()]
+    if vehicle_type:
+        result = [b for b in result if vehicle_type.strip().lower() in str(b.get('vehicle_type', '') or '').strip().lower()]
+    if author:
+        result = [b for b in result if author.strip().lower() in str(b.get('author', '') or '').lower()]
+    if keyword:
+        result = [b for b in result if
+                  keyword.lower() in str(b.get('title', '') or '').lower() or
+                  keyword.lower() in str(b.get('synopsis', '') or '').lower()]
+
+    return jsonify([to_frontend(b) for b in result])
+
+@app.route('/api/bills/meta', methods=['GET'])
+def get_bills_meta():
+    all_bills = []
+    for bills_table, _ in STATE_TABLE_MAP.values():
+        all_bills.extend(fetch_all(bills_table))
+
+    states = sorted(set(str(b.get('state', '') or '').strip() for b in all_bills if b.get('state')))
+    vehicle_types = sorted(set(
+        vt.strip()
+        for b in all_bills
+        for vt in str(b.get('vehicle_type', '') or '').split(',')
+        if vt.strip()
+    ))
+    categories = sorted(set(str(b.get('category', '') or '').strip() for b in all_bills if b.get('category')))
+    return jsonify({"states": states, "vehicleTypes": vehicle_types, "categories": categories})
 
 @app.route('/api/states', methods=['GET'])
 def get_states():
-    return jsonify({"states": get_available_states()})
+    return jsonify({"states": list(STATE_TABLE_MAP.keys())})
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
     state = request.args.get('state')
-    if state and state in data_cache:
-        return jsonify(data_cache[state])
-    return jsonify({"error": "State data not found"}), 404
+    if state not in STATE_TABLE_MAP:
+        return jsonify({"error": "State data not found"}), 404
+    _, state_table = STATE_TABLE_MAP[state]
+    return jsonify([to_frontend(r) for r in fetch_all(state_table)])
 
 @app.route('/api/state-summary', methods=['GET'])
 def get_state_summary():
     summary = []
-    for state, bills in data_cache.items():
+    for state, (_, state_table) in STATE_TABLE_MAP.items():
+        bills = fetch_all(state_table)
         total_bills = len(bills)
-        enacted_bills = sum(1 for bill in bills if str(bill.get("Version", "")).strip().lower() == "enacted")
+        enacted_bills = sum(1 for bill in bills if str(bill.get("version", "")).strip().lower() == "enacted")
         pending_bills = total_bills - enacted_bills
         summary.append({"state": state, "total": total_bills, "enacted": enacted_bills, "pending": pending_bills})
     return jsonify(summary)
@@ -48,14 +118,16 @@ def get_state_summary():
 @app.route('/api/yearly-trends', methods=['GET'])
 def get_yearly_trends():
     state = request.args.get('state')
-    if state not in data_cache:
+    if state not in STATE_TABLE_MAP:
         return jsonify({"error": "State not found"}), 404
-
+    _, state_table = STATE_TABLE_MAP[state]
+    bills = fetch_all(state_table)
     yearly_trends = {}
-    for bill in data_cache[state]:
+    for bill in bills:
         try:
-            year = str(pd.to_datetime(bill.get("Date", ""), errors='coerce').year)
-            if year != "NaT":
+            date_str = str(bill.get("date", "") or "")
+            year = date_str[:4]
+            if year.isdigit():
                 yearly_trends[year] = yearly_trends.get(year, 0) + 1
         except:
             continue
@@ -64,54 +136,52 @@ def get_yearly_trends():
 @app.route('/api/top-authors', methods=['GET'])
 def get_top_authors():
     state = request.args.get('state')
-    if state not in data_cache:
+    if state not in STATE_TABLE_MAP:
         return jsonify({"error": "State not found"}), 404
-
+    _, state_table = STATE_TABLE_MAP[state]
+    bills = fetch_all(state_table)
     author_counts = {}
-    for bill in data_cache[state]:
-        authors = str(bill.get("Author", "")).split(",")
-        for author in authors:
+    for bill in bills:
+        for author in str(bill.get("author", "")).split(","):
             author = author.strip()
-            author_counts[author] = author_counts.get(author, 0) + 1
-
+            if author:
+                author_counts[author] = author_counts.get(author, 0) + 1
     top_authors = sorted(author_counts.items(), key=lambda x: x[1], reverse=True)[:5]
     return jsonify([{"author": a, "bills": c} for a, c in top_authors])
 
 @app.route('/api/longest-pending-bills', methods=['GET'])
 def get_longest_pending_bills():
     state = request.args.get('state')
-    if state not in data_cache:
+    if state not in STATE_TABLE_MAP:
         return jsonify({"error": "State not found"}), 404
-
-    pending_bills = [bill for bill in data_cache[state] if str(bill.get("Version", "")).strip().lower() != "enacted"]
-    pending_bills.sort(key=lambda b: pd.to_datetime(b.get("Date", ""), errors='coerce'), reverse=False)
-
-    return jsonify(pending_bills[:5])
+    _, state_table = STATE_TABLE_MAP[state]
+    bills = fetch_all(state_table)
+    pending_bills = [bill for bill in bills if str(bill.get("version", "")).strip().lower() != "enacted"]
+    pending_bills.sort(key=lambda b: str(b.get("date", "") or ""))
+    return jsonify([to_frontend(b) for b in pending_bills[:5]])
 
 @app.route('/api/state-vehicle-types', methods=['GET'])
 def get_state_vehicle_types():
     state_summary = {}
-    for state, bills in data_cache.items():
+    for state, (_, state_table) in STATE_TABLE_MAP.items():
+        bills = fetch_all(state_table)
         vehicle_types = set()
         for bill in bills:
-            if "Vehicle Type" in bill and isinstance(bill["Vehicle Type"], str):
-                vehicle_types.update(bill["Vehicle Type"].split(","))
+            vt = bill.get("vehicle_type", "")
+            if vt and isinstance(vt, str):
+                vehicle_types.update(v.strip() for v in vt.split(",") if v.strip())
         state_summary[state] = {"totalVehicleTypes": len(vehicle_types)}
     return jsonify(state_summary)
 
-# ✅ NEW API: State Scorecards
 @app.route('/api/state-scorecards', methods=['GET'])
 def get_state_scorecards():
     results = {}
-    for file in os.listdir(DATA_FOLDER):
-        if file.endswith(".xlsx"):
-            state = file.replace(".xlsx", "")
-            filepath = os.path.join(DATA_FOLDER, file)
-            try:
-                result = analyze_state(filepath)
-                results[state] = result
-            except Exception as e:
-                results[state] = {"error": str(e)}
+    for state, (_, state_table) in STATE_TABLE_MAP.items():
+        try:
+            bills = fetch_all(state_table)
+            results[state] = analyze_state_data(bills)
+        except Exception as e:
+            results[state] = {"error": str(e)}
     return jsonify(results)
 
 if __name__ == '__main__':
