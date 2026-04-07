@@ -8,6 +8,8 @@ dist/
 # Secrets
 .env
 scorecard_frontend/.env
+.env.local
+.env.development.local
 
 # Node
 node_modules/
@@ -23,6 +25,7 @@ venv/
 
 # Build output
 build/
+.codex-logs/
 
 # Vercel
 .vercel/

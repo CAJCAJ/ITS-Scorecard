@@ -1,6 +1,8 @@
 # Secrets
 .env
 scorecard_frontend/.env
+scorecard_frontend/.env.local
+scorecard_frontend/.env.development.local
 
 # Node
 node_modules/
@@ -16,6 +18,7 @@ venv/
 
 # Build output
 build/
+.codex-logs/
 
 # Vercel
 .vercel/

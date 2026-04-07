@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useDashboard } from "../context/DashboardContext";
+import { apiUrl } from "../services/api";
 
 import USHeatMap from "../components/USHeatMap";
 import DashboardCard from "../components/DashboardCard";
@@ -24,7 +25,7 @@ export default function Dashboard() {
     // 1️⃣ Load states
     useEffect(() => {
         axios
-            .get("http://127.0.0.1:5000/api/states")
+            .get(apiUrl("/states"))
             .then(res => setStatesList(res.data.states || []))
             .catch(console.error);
     }, []);
@@ -34,7 +35,7 @@ export default function Dashboard() {
         if (!selectedState) return;
 
         axios
-            .get(`http://127.0.0.1:5000/api/data?state=${encodeURIComponent(selectedState)}`)
+            .get(apiUrl(`/data?state=${encodeURIComponent(selectedState)}`))
             .then(res => {
                 const enacted = res.data.filter(
                     b => (b.Version || "").trim().toLowerCase() === "enacted"
@@ -44,7 +45,7 @@ export default function Dashboard() {
             .catch(console.error);
 
         axios
-            .get("http://127.0.0.1:5000/api/state-scorecards")
+            .get(apiUrl("/state-scorecards"))
             .then(res => setScorecard(res.data[selectedState] || null))
             .catch(console.error);
     }, [selectedState]);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { apiUrl } from "../services/api";
 
 const Projects = () => {
   const [states, setStates] = useState([]);
@@ -8,7 +9,7 @@ const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    axios.get('/api/states')
+    axios.get(apiUrl("/states"))
       .then(res => setStates(res.data.states || []))
       .catch(console.error);
   }, []);
