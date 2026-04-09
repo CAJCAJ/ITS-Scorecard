@@ -25,8 +25,9 @@ ChartJS.register(
 
 export default function YearlyTrendChart({ data }) {
     const byYear = useMemo(() => {
+        const rows = Array.isArray(data) ? data : [];
         const m = {};
-        data.forEach((b) => {
+        rows.forEach((b) => {
             const y = new Date(b.Date).getFullYear();
             if (!isNaN(y)) m[y] = (m[y] || 0) + 1;
         });

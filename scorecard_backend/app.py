@@ -4,6 +4,7 @@ from supabase import create_client
 from scorecard_processor import analyze_state_data
 import io
 import csv
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
 from werkzeug.utils import secure_filename
@@ -15,6 +16,14 @@ SUPABASE_URL = "https://ivustulljgjkhpikzitj.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2dXN0dWxsamdqa2hwaWt6aXRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MTA0ODksImV4cCI6MjA4OTM4NjQ4OX0.0sz-uap_Xvv9v6cpXdfsVyGa5fqfo_2ATr27aJ7eM0M"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+DOCUMENT_CATEGORY_LABELS = {
+    "benefit_cost": "ITS Benefit and Cost Data",
+    "survey": "ITS Deployment Coverage Data",
+    "legislation": "ITS Policy and Legislation Data",
+    "planning": "ITS Project Planning Documents",
+    "facility": "ITS Facility Documents",
+}
 
 # Maps state name to (bills table, state data table)
 STATE_TABLE_MAP = {
@@ -218,6 +227,18 @@ def purge_expired_deleted_docs():
     except Exception:
         pass
 
+
+def format_document_record(record):
+    original_name = record.get("original_name") or record.get("filename") or ""
+    table_name = os.path.splitext(original_name)[0] if original_name else ""
+    doc_type = record.get("doc_type", "")
+
+    formatted = dict(record)
+    formatted["table_name"] = table_name
+    formatted["category"] = DOCUMENT_CATEGORY_LABELS.get(doc_type, doc_type)
+    formatted["status"] = "Uploaded"
+    return formatted
+
 # ─────────────────────────────────────────────
 #  DOCUMENT ENDPOINTS
 # ─────────────────────────────────────────────
@@ -253,7 +274,7 @@ def upload_document():
             'filename': filename,
             'original_name': original_name,
             'doc_type': doc_type,
-            'status': 'extracted',
+            'status': 'uploaded',
             'keywords': keywords,
             'created_at': datetime.now(timezone.utc).isoformat()
         }).execute()
@@ -272,7 +293,7 @@ def get_documents():
     try:
         purge_expired_deleted_docs()
         result = supabase.table('documents').select('*').order('created_at', desc=True).execute()
-        return jsonify(result.data)
+        return jsonify([format_document_record(doc) for doc in result.data])
     except Exception as e:
         return jsonify({'error': f'Could not fetch documents: {str(e)}'}), 500
 

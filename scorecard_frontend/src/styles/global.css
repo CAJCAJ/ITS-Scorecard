@@ -862,27 +862,29 @@ body {
 /* ==================== UPLOAD & UPDATE PAGE ==================== */
 
 .upload-page {
-  padding: 28px 32px;
-  max-width: 1300px;
+  padding: 32px 40px 40px;
+  max-width: 1560px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .upload-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 34px;
 }
 
 .upload-header h1 {
-  font-size: 1.55rem;
+  font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 4px 0;
+  margin: 0 0 8px 0;
 }
 
 .upload-header p {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 1rem;
   margin: 0;
 }
 
@@ -897,9 +899,9 @@ body {
   background: rgba(0, 87, 255, 0.1);
   color: #0057ff;
   border: 1px solid rgba(0, 87, 255, 0.2);
-  padding: 5px 14px;
+  padding: 8px 16px;
   border-radius: 20px;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
@@ -947,33 +949,35 @@ body {
 /* ── Two-column layout ── */
 .upload-layout {
   display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 28px;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1.35fr);
+  gap: 40px;
   align-items: start;
 }
 
 .upload-section-title {
-  font-size: 1rem;
+  font-size: 1.18rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 16px 0;
+  margin: 0 0 20px 0;
 }
 
 /* ── LEFT: Upload Cards ── */
 .upload-cards {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
 
 .upload-card {
   background: var(--card-bg, #fff);
   border: 2px dashed #d0d7e3;
-  border-radius: 14px;
-  padding: 22px 18px;
+  border-radius: 18px;
+  padding: 30px 26px;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, transform 0.1s ease;
   text-align: center;
+  min-height: 190px;
+  box-sizing: border-box;
 }
 
 .upload-card:hover {
@@ -994,26 +998,29 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 10px;
+  min-height: 128px;
 }
 
 .upload-icon {
-  font-size: 2rem;
+  font-size: 2.6rem;
   color: #0057ff;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .upload-card-label {
-  font-size: 0.92rem;
+  font-size: 1.08rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
 }
 
 .upload-card-hint {
-  font-size: 0.82rem;
+  font-size: 0.94rem;
   color: var(--text-secondary);
   margin: 0;
+  line-height: 1.5;
 }
 
 .browse-link {
@@ -1023,9 +1030,10 @@ body {
 }
 
 .upload-card-formats {
-  font-size: 0.76rem;
+  font-size: 0.86rem;
   color: #9aa5b4;
   margin: 0;
+  line-height: 1.45;
 }
 
 /* Spinner inside card while uploading */
@@ -1056,30 +1064,30 @@ body {
 .upload-right {
   background: var(--card-bg, #fff);
   border: 1px solid var(--border-color, #e8edf3);
-  border-radius: 16px;
-  padding: 22px 24px;
-  min-height: 460px;
+  border-radius: 20px;
+  padding: 36px 40px;
+  min-height: 820px;
 }
 
 .preview-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 28px;
 }
 
 .refresh-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
 }
 
 /* Search + filter row */
 .preview-controls {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 34px;
 }
 
 .preview-search-wrap {
@@ -1089,19 +1097,19 @@ body {
 
 .preview-search-icon {
   position: absolute;
-  left: 10px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: #9aa5b4;
-  font-size: 0.85rem;
+  font-size: 1rem;
 }
 
 .preview-search-input {
   width: 100%;
-  padding: 8px 12px 8px 32px;
+  padding: 14px 18px 14px 46px;
   border: 1px solid var(--border-color, #e0e6ed);
-  border-radius: 8px;
-  font-size: 0.85rem;
+  border-radius: 12px;
+  font-size: 1.08rem;
   background: var(--input-bg, #f8fafc);
   color: var(--text-primary);
   box-sizing: border-box;
@@ -1115,10 +1123,11 @@ body {
 }
 
 .preview-filter-select {
-  padding: 8px 12px;
+  min-width: 260px;
+  padding: 14px 18px;
   border: 1px solid var(--border-color, #e0e6ed);
-  border-radius: 8px;
-  font-size: 0.85rem;
+  border-radius: 12px;
+  font-size: 1.08rem;
   background: var(--input-bg, #f8fafc);
   color: var(--text-primary);
   outline: none;
@@ -1134,7 +1143,7 @@ body {
 .preview-sections {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 26px;
 }
 
 .preview-section-label {
@@ -1150,7 +1159,7 @@ body {
 .preview-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 1.08rem;
 }
 
 .preview-table thead tr {
@@ -1159,8 +1168,8 @@ body {
 
 .preview-table th {
   text-align: left;
-  padding: 6px 10px;
-  font-size: 0.78rem;
+  padding: 14px 16px;
+  font-size: 0.98rem;
   font-weight: 600;
   color: #9aa5b4;
   text-transform: uppercase;
@@ -1168,7 +1177,7 @@ body {
 }
 
 .preview-table td {
-  padding: 9px 10px;
+  padding: 18px 16px;
   border-bottom: 1px solid var(--border-color, #f0f4f8);
   color: var(--text-primary);
   vertical-align: middle;
@@ -1184,21 +1193,19 @@ body {
 
 .kw-cell {
   font-weight: 500;
-  max-width: 200px;
+  max-width: 360px;
   word-break: break-word;
 }
 
 .source-cell {
   color: #6b7a8d;
-  font-size: 0.8rem;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 1.02rem;
+  max-width: 360px;
+  word-break: break-word;
 }
 
 .action-cell {
-  width: 36px;
+  width: 54px;
   text-align: center;
 }
 
@@ -1207,9 +1214,9 @@ body {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
   border: 1px solid rgba(16, 185, 129, 0.25);
-  padding: 3px 10px;
+  padding: 7px 14px;
   border-radius: 20px;
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1241,8 +1248,8 @@ body {
 .preview-empty {
   text-align: center;
   color: #9aa5b4;
-  font-size: 0.88rem;
-  padding: 40px 20px;
+  font-size: 1rem;
+  padding: 56px 24px;
 }
 
 /* ── Dark mode ── */
@@ -1294,6 +1301,10 @@ body {
 @media (max-width: 900px) {
   .upload-layout {
     grid-template-columns: 1fr;
+  }
+
+  .upload-page {
+    padding: 24px 20px 32px;
   }
 }
 

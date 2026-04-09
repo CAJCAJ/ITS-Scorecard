@@ -1,46 +1,52 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  FaCloudUploadAlt,
   FaSearch,
   FaSyncAlt,
   FaTrash,
-  FaFileCsv,
+  FaFileAlt,
   FaFilePdf,
   FaFileExcel,
 } from 'react-icons/fa';
 import axios from 'axios';
-
-const API = 'http://127.0.0.1:5000';
+import { apiUrl } from '../services/api';
 
 const DOC_TYPES = [
   {
-    key: 'survey',
-    label: 'Survey Data',
+    key: 'benefit_cost',
+    label: 'ITS Benefit and Cost Data',
     accepts: '.xlsx,.csv',
-    acceptsLabel: 'Supported formats: XLSX, CSV',
+    acceptsLabel: 'Upload benefit and cost tables in XLSX or CSV format',
+    Icon: FaFileExcel,
+  },
+  {
+    key: 'survey',
+    label: 'ITS Deployment Coverage Data',
+    accepts: '.xlsx,.csv',
+    acceptsLabel: 'Upload deployment and coverage tables in XLSX or CSV format',
+    Icon: FaFileExcel,
+  },
+  {
+    key: 'legislation',
+    label: 'ITS Policy and Legislation Data',
+    accepts: '.xlsx,.csv,.pdf,.docx',
+    acceptsLabel: 'Upload policy tables or supporting files in XLSX, CSV, PDF, or DOCX format',
     Icon: FaFileExcel,
   },
   {
     key: 'planning',
-    label: 'Planning Documentation',
-    accepts: '.pdf,.docx',
-    acceptsLabel: 'Supported formats: PDF, DOCX',
+    label: 'ITS Project Planning Documents',
+    accepts: '.pdf,.docx,.xlsx',
+    acceptsLabel: 'Upload project planning documents in PDF, DOCX, or XLSX format',
     Icon: FaFilePdf,
   },
   {
-    key: 'legislation',
-    label: 'Legislation Data',
-    accepts: '.pdf,.docx',
-    acceptsLabel: 'Supported formats: PDF, DOCX',
-    Icon: FaFileCsv,
+    key: 'facility',
+    label: 'ITS Facility Documents',
+    accepts: '.pdf,.docx,.xlsx',
+    acceptsLabel: 'Upload facility reference documents in PDF, DOCX, or XLSX format',
+    Icon: FaFileAlt,
   },
 ];
-
-const SECTION_LABELS = {
-  survey: 'Latest ITS Survey Data',
-  planning: 'Planning Extraction',
-  legislation: 'Legislative Extraction',
-};
 
 export default function UploadUpdate() {
   const [documents, setDocuments] = useState([]);
@@ -66,7 +72,7 @@ export default function UploadUpdate() {
 
   const fetchDocuments = async () => {
     try {
-      const res = await axios.get(`${API}/api/documents`);
+      const res = await axios.get(apiUrl('/documents'));
       setDocuments(res.data);
     } catch (err) {
       const msg = err.response?.data?.error || err.message || 'Could not reach backend. Make sure Flask is running on port 5000.';
@@ -86,7 +92,7 @@ export default function UploadUpdate() {
     formData.append('file', file);
     formData.append('doc_type', docType);
     try {
-      await axios.post(`${API}/api/documents/upload`, formData, {
+      await axios.post(apiUrl('/documents/upload'), formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       showSuccess(`"${file.name}" uploaded successfully.`);
@@ -105,7 +111,7 @@ export default function UploadUpdate() {
   const handleDelete = async (id) => {
     setDeletingId(id);
     try {
-      await axios.delete(`${API}/api/documents/${id}`);
+      await axios.delete(apiUrl(`/documents/${id}`));
       setDocuments(prev => prev.filter(d => d.id !== id));
       showSuccess('Document moved to trash. It will be permanently deleted in 30 days.');
     } catch (err) {
@@ -126,19 +132,12 @@ export default function UploadUpdate() {
   const filteredDocs = documents.filter(d => {
     const matchesSearch =
       search === '' ||
-      d.original_name?.toLowerCase().includes(search.toLowerCase()) ||
-      (d.keywords || []).some(k =>
-        k.toLowerCase().includes(search.toLowerCase())
-      );
+      d.table_name?.toLowerCase().includes(search.toLowerCase()) ||
+      d.category?.toLowerCase().includes(search.toLowerCase());
     const matchesFilter =
       filterCategory === 'all' || d.doc_type === filterCategory;
     return matchesSearch && matchesFilter;
   });
-
-  const groupedDocs = DOC_TYPES.reduce((acc, type) => {
-    acc[type.key] = filteredDocs.filter(d => d.doc_type === type.key);
-    return acc;
-  }, {});
 
   const totalDocs = documents.length;
 
@@ -250,9 +249,9 @@ export default function UploadUpdate() {
               onChange={e => setFilterCategory(e.target.value)}
             >
               <option value="all">Filter by Category</option>
-              <option value="survey">Survey Data</option>
-              <option value="planning">Planning Docs</option>
-              <option value="legislation">Legislation</option>
+              {DOC_TYPES.map(({ key, label }) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
             </select>
           </div>
 
@@ -260,64 +259,44 @@ export default function UploadUpdate() {
           <div className="preview-sections">
             {filteredDocs.length === 0 ? (
               <div className="preview-empty">
-                No documents uploaded yet. Upload files to see extracted data here.
+                No documents uploaded yet. Upload files to see table status here.
               </div>
             ) : (
-              DOC_TYPES.map(({ key }) => {
-                const docs = groupedDocs[key];
-                if (!docs || docs.length === 0) return null;
-
-                return (
-                  <div key={key} className="preview-section">
-                    <h3 className="preview-section-label">
-                      {SECTION_LABELS[key]}
-                    </h3>
-
-                    <table className="preview-table">
-                      <thead>
-                        <tr>
-                          <th>Keyword</th>
-                          <th>Source</th>
-                          <th>Status</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {docs.map(doc => {
-                          const keywords =
-                            doc.keywords && doc.keywords.length > 0
-                              ? doc.keywords
-                              : [doc.original_name];
-
-                          return keywords.map((kw, i) => (
-                            <tr key={`${doc.id}-${i}`}>
-                              <td className="kw-cell">{kw}</td>
-                              <td className="source-cell">{doc.original_name}</td>
-                              <td>
-                                <span className="status-badge extracted">
-                                  Extracted
-                                </span>
-                              </td>
-                              <td className="action-cell">
-                                {i === 0 && (
-                                  <button
-                                    className="delete-doc-btn"
-                                    title="Delete document"
-                                    disabled={deletingId === doc.id}
-                                    onClick={() => handleDelete(doc.id)}
-                                  >
-                                    <FaTrash />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ));
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })
+              <div className="preview-section">
+                <table className="preview-table">
+                  <thead>
+                    <tr>
+                      <th>Table Name</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDocs.map(doc => (
+                      <tr key={doc.id}>
+                        <td className="kw-cell">{doc.table_name || doc.original_name}</td>
+                        <td className="source-cell">{doc.category || doc.doc_type}</td>
+                        <td>
+                          <span className="status-badge extracted">
+                            {doc.status || 'Uploaded'}
+                          </span>
+                        </td>
+                        <td className="action-cell">
+                          <button
+                            className="delete-doc-btn"
+                            title="Delete document"
+                            disabled={deletingId === doc.id}
+                            onClick={() => handleDelete(doc.id)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

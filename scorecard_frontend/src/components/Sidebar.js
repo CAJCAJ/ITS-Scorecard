@@ -60,6 +60,13 @@ export default function Sidebar({ collapsed, onToggle }) {
         </li>
 
         <li>
+          <NavLink to="/upload" className={getActiveClass}>
+            <FaUpload className="icon" />
+            <span className="link-text">Upload &amp; Update</span>
+          </NavLink>
+        </li>
+
+        <li>
           <NavLink to="/dashboard" className={getActiveClass}>
             <FaTachometerAlt className="icon" />
             <span className="link-text">Dashboard</span>
@@ -100,13 +107,6 @@ export default function Sidebar({ collapsed, onToggle }) {
             </li>
           </ul>
         )}
-
-        <li>
-          <NavLink to="/upload" className={getActiveClass}>
-            <FaUpload className="icon" />
-            <span className="link-text">Upload &amp; Update</span>
-          </NavLink>
-        </li>
 
         <li>
           <NavLink to="/reports" className={getActiveClass}>

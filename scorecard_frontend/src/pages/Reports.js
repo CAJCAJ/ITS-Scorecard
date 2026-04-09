@@ -129,7 +129,7 @@ const Reports = () => {
           {/* Data Charts in Grid */}
           <div className="charts-grid">
             <Charts data={filteredData} />
-            <YearlyTrendChart state={selectedState} />
+            <YearlyTrendChart data={filteredData} />
           </div>
 
           {/* Insights Section */}
