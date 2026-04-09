@@ -2,6 +2,12 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from supabase import create_client
 from scorecard_processor import analyze_state_data
+import io
+import csv
+import os
+import uuid
+from datetime import datetime, timezone, timedelta
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
@@ -10,6 +16,14 @@ SUPABASE_URL = "https://ivustulljgjkhpikzitj.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2dXN0dWxsamdqa2hwaWt6aXRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MTA0ODksImV4cCI6MjA4OTM4NjQ4OX0.0sz-uap_Xvv9v6cpXdfsVyGa5fqfo_2ATr27aJ7eM0M"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+DOCUMENT_CATEGORY_LABELS = {
+    "benefit_cost": "ITS Benefit and Cost Data",
+    "survey": "ITS Deployment Coverage Data",
+    "legislation": "ITS Policy and Legislation Data",
+    "planning": "ITS Project Planning Documents",
+    "facility": "ITS Facility Documents",
+}
 
 # Maps state name to (bills table, state data table)
 STATE_TABLE_MAP = {
@@ -184,5 +198,128 @@ def get_state_scorecards():
             results[state] = {"error": str(e)}
     return jsonify(results)
 
+# ─────────────────────────────────────────────
+#  DOCUMENT UPLOAD HELPERS
+# ─────────────────────────────────────────────
+
+def extract_keywords_from_csv(content):
+    try:
+        text = content.decode('utf-8', errors='ignore')
+        reader = csv.reader(io.StringIO(text))
+        headers = next(reader, [])
+        return [h.strip() for h in headers if h.strip()][:8]
+    except Exception:
+        return []
+
+def extract_keywords_from_xlsx(content):
+    try:
+        import pandas as pd
+        df = pd.read_excel(io.BytesIO(content))
+        return [str(c).strip() for c in df.columns if str(c).strip()][:8]
+    except Exception:
+        return []
+
+def purge_expired_deleted_docs():
+    """Permanently remove docs that have been in deleted_docs for more than 30 days."""
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        supabase.table('deleted_docs').delete().lt('deleted_at', cutoff).execute()
+    except Exception:
+        pass
+
+
+def format_document_record(record):
+    original_name = record.get("original_name") or record.get("filename") or ""
+    table_name = os.path.splitext(original_name)[0] if original_name else ""
+    doc_type = record.get("doc_type", "")
+
+    formatted = dict(record)
+    formatted["table_name"] = table_name
+    formatted["category"] = DOCUMENT_CATEGORY_LABELS.get(doc_type, doc_type)
+    formatted["status"] = "Uploaded"
+    return formatted
+
+# ─────────────────────────────────────────────
+#  DOCUMENT ENDPOINTS
+# ─────────────────────────────────────────────
+
+@app.route('/api/documents/upload', methods=['POST'])
+def upload_document():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file = request.files['file']
+        doc_type = request.form.get('doc_type', 'survey')
+
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+
+        original_name = file.filename
+        filename = secure_filename(original_name)
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+
+        file_content = file.read()
+        keywords = []
+
+        if ext == 'csv':
+            keywords = extract_keywords_from_csv(file_content)
+        elif ext in ('xlsx', 'xls'):
+            keywords = extract_keywords_from_xlsx(file_content)
+
+        doc_id = str(uuid.uuid4())
+
+        result = supabase.table('documents').insert({
+            'id': doc_id,
+            'filename': filename,
+            'original_name': original_name,
+            'doc_type': doc_type,
+            'status': 'uploaded',
+            'keywords': keywords,
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }).execute()
+
+        if hasattr(result, 'error') and result.error:
+            return jsonify({'error': str(result.error)}), 500
+
+        return jsonify({'message': 'Uploaded successfully', 'id': doc_id}), 201
+
+    except Exception as e:
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+
+@app.route('/api/documents', methods=['GET'])
+def get_documents():
+    try:
+        purge_expired_deleted_docs()
+        result = supabase.table('documents').select('*').order('created_at', desc=True).execute()
+        return jsonify([format_document_record(doc) for doc in result.data])
+    except Exception as e:
+        return jsonify({'error': f'Could not fetch documents: {str(e)}'}), 500
+
+
+@app.route('/api/documents/<doc_id>', methods=['DELETE'])
+def delete_document(doc_id):
+    try:
+        result = supabase.table('documents').select('*').eq('id', doc_id).execute()
+        if not result.data:
+            return jsonify({'error': 'Document not found'}), 404
+
+        doc = result.data[0]
+
+        # Move to deleted_docs with 30-day expiry timestamp
+        supabase.table('deleted_docs').insert({
+            **doc,
+            'deleted_at': datetime.now(timezone.utc).isoformat()
+        }).execute()
+
+        supabase.table('documents').delete().eq('id', doc_id).execute()
+
+        return jsonify({'message': 'Document moved to trash'}), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

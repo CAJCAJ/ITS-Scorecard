@@ -8,6 +8,7 @@ import { scaleLinear } from "d3-scale";
 import axios from "axios";
 import StateModal from "./StateModal";
 import { useDashboard } from "../context/DashboardContext";
+import { apiUrl } from "../services/api";
 
 // ─── Constants ────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export default function USHeatMap() {
 
     // fetch once on mount
     useEffect(() => {
-        axios.get("http://127.0.0.1:5000/api/state-scorecards")
+        axios.get(apiUrl("/state-scorecards"))
             .then(res => setScorecards(res.data))
             .catch(err => console.error("HeatMap load error", err));
     }, []);

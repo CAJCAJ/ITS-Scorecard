@@ -5,6 +5,7 @@ import Charts from "../components/Charts";
 import StateComparisonChart from "../components/StateComparisonChart";
 import YearlyTrendChart from "../components/YearlyTrendChart";
 import TopAuthors from "../components/TopAuthors";
+import { apiUrl } from "../services/api";
 
 const Reports = () => {
   const [states, setStates] = useState([]);
@@ -23,7 +24,7 @@ const Reports = () => {
   useEffect(() => {
     const fetchStates = async () => {
       try {
-        const response = await axios.get("http://127.0.0.1:5000/api/states");
+        const response = await axios.get(apiUrl("/states"));
         setStates(response.data.states || []);
       } catch (error) {
         console.error("Error fetching states", error);
@@ -35,7 +36,7 @@ const Reports = () => {
   // Fetch data based on selected state
   useEffect(() => {
     if (selectedState) {
-      axios.get(`http://127.0.0.1:5000/api/data?state=${selectedState}`)
+      axios.get(apiUrl(`/data?state=${encodeURIComponent(selectedState)}`))
         .then(res => {
           setData(res.data);
           setFilteredData(res.data);
@@ -128,7 +129,7 @@ const Reports = () => {
           {/* Data Charts in Grid */}
           <div className="charts-grid">
             <Charts data={filteredData} />
-            <YearlyTrendChart state={selectedState} />
+            <YearlyTrendChart data={filteredData} />
           </div>
 
           {/* Insights Section */}

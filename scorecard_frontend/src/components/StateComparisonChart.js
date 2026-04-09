@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { apiUrl } from "../services/api";
 
 const StateComparisonChart = () => {
   const [stateData, setStateData] = useState([]);
 
   useEffect(() => {
-    axios.get("http://127.0.0.1:5000/api/state-summary")
+    axios.get(apiUrl("/state-summary"))
       .then(res => setStateData(res.data))
       .catch(err => console.error("Error fetching state summary", err));
   }, []);

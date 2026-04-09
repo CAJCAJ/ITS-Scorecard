@@ -14,6 +14,7 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaSignOutAlt,
+  FaUpload,
 } from "react-icons/fa";
 
 import "../styles/Sidebar.css";
@@ -55,6 +56,13 @@ export default function Sidebar({ collapsed, onToggle }) {
           <NavLink to="/home" className={getActiveClass}>
             <FaHome className="icon" />
             <span className="link-text">Home</span>
+          </NavLink>
+        </li>
+
+        <li>
+          <NavLink to="/upload" className={getActiveClass}>
+            <FaUpload className="icon" />
+            <span className="link-text">Upload &amp; Update</span>
           </NavLink>
         </li>
 
@@ -103,7 +111,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         <li>
           <NavLink to="/reports" className={getActiveClass}>
             <FaChartArea className="icon" />
-            <span className="link-text">Reports</span>
+            <span className="link-text">Legislative Analysis</span>
           </NavLink>
         </li>
 

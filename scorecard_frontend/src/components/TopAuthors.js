@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { apiUrl } from "../services/api";
 
 const TopAuthors = ({ state }) => {
   const [authors, setAuthors] = useState([]);
 
   useEffect(() => {
     if (state) {
-      axios.get(`http://127.0.0.1:5000/api/top-authors?state=${state}`)
+      axios.get(apiUrl(`/top-authors?state=${encodeURIComponent(state)}`))
         .then(res => setAuthors(res.data))
         .catch(err => console.error("Error fetching top authors", err));
     }
