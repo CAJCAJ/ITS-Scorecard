@@ -1,5 +1,8 @@
 # Secrets
 .env
+.env.local
+scorecard_backend/.env
+scorecard_backend/.env.local
 scorecard_frontend/.env
 scorecard_frontend/.env.local
 scorecard_frontend/.env.development.local

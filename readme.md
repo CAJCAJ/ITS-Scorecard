@@ -48,14 +48,16 @@ supabase (2.7.0): Python client for querying the Supabase database.
 
 Data Storage
 
-All legislative data is stored in Supabase (PostgreSQL). Four tables are used:
+This fork now uses an upload-managed Supabase design:
 
-- tx_bills — Categorized legislation bills for Texas
-- nj_bills — Categorized legislation bills for New Jersey
-- tx_state_data — Detailed scorecard data for Texas
-- nj_state_data — Detailed scorecard data for New Jersey
+- `documents` — upload metadata shown in the Upload & Update preview panel
+- `deleted_docs` — deleted upload metadata retained for 30 days
+- `uploaded_dataset_rows` — parsed row-level data for uploaded tables
 
-Each table has the following columns: id, title, bill_info, author, version, date, vehicle_type, state, synopsis, category
+The current state analysis flow is driven by uploaded dataset keys:
+
+- `tx_state_data`
+- `nj_state_data`
 
 Getting Started
 
@@ -106,19 +108,31 @@ Full package list:
 
 Supabase Setup (one-time)
 
-Before running the backend, ensure your Supabase tables are created and data is seeded:
+This fork should point to your own Supabase project, not a shared one.
 
-1. Create the four tables (tx_bills, nj_bills, tx_state_data, nj_state_data) in Supabase.
-2. Disable Row Level Security on each table:
+1. Create a new Supabase project in the dashboard.
+2. Open Project Settings -> API and copy:
+   - Project URL
+   - Legacy `anon` key
+3. Copy `scorecard_backend/.env.example` to `scorecard_backend/.env.local`
+4. Fill in your own values:
 
-   alter table tx_bills disable row level security;
-   alter table nj_bills disable row level security;
-   alter table tx_state_data disable row level security;
-   alter table nj_state_data disable row level security;
+   SUPABASE_URL=https://your-project-ref.supabase.co
+   SUPABASE_ANON_KEY=your-legacy-anon-key-here
 
-3. Run the seeding script from the project root:
+5. In the Supabase SQL editor, run:
 
-   python scorecard_backend/upload_to_supabase.py
+   scorecard_backend/supabase_schema.sql
+
+If you already created the older fixed tables and want to remove them first, run:
+
+   scorecard_backend/supabase_cleanup.sql
+
+Notes:
+- `scorecard_backend/.env.local` is ignored by git and should stay local.
+- The backend now refuses to start if Supabase credentials are missing.
+- `documents`, `deleted_docs`, and `uploaded_dataset_rows` are created by `supabase_schema.sql`.
+- Uploading `ITS Deployment Coverage Data` stores parsed rows directly in Supabase, and the analysis pages read the latest uploaded `tx_state_data` and `nj_state_data` datasets.
 
 
 3. Run the Application

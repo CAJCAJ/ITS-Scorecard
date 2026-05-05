@@ -1,0 +1,43 @@
+{
+  "benefit_cost": {
+    "existing_mobility_benefit": "0",
+    "existing_safety_benefit": "0",
+    "existing_environment_benefit": "0",
+    "new_mobility_benefit": "0",
+    "new_safety_benefit": "0",
+    "new_environment_benefit": "0",
+    "existing_om_cost": "0",
+    "new_deployment_cost": "0"
+  },
+  "deployment_coverage": {
+    "signal_management": "0%",
+    "traffic_monitoring": "0%",
+    "vru_safety": "0%",
+    "traveler_information": "0%",
+    "atdm": "0%",
+    "safety_enforcement": "0%",
+    "road_weather": "0%",
+    "work_zone": "0%",
+    "transit_fleet": "0%",
+    "connected_automated": "0%",
+    "program_support": "0%"
+  },
+  "policy_legislation": {
+    "policy_document_presence": "0.000",
+    "legislative_support": "0.000",
+    "technology_documentation_maturity": "0.000"
+  },
+  "project_planning": {
+    "federal_awards": "0.000",
+    "award_funding": "0",
+    "planned_projects": "0",
+    "planned_corridor_miles": "0"
+  },
+  "facility": {
+    "operations_centers": "0",
+    "om_facilities_fleets": "0",
+    "labs_rd_units": "0",
+    "resource_centers": "0",
+    "testbeds_pilot_corridors": "0"
+  }
+}

@@ -9,7 +9,7 @@ export default function Login() {
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState("login"); // "login" | "register"
-    const [stateName, setStateName] = useState("Texas");
+    const [stateName, setStateName] = useState("ITS Scorecard");
 
     useEffect(() => {
         mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
@@ -88,12 +88,13 @@ export default function Login() {
             >
                 <div
                     style={{
-                        width: "min(520px, 92vw)",
+                        width: "min(560px, 92vw)",
                         background: "#fff",
                         borderRadius: 14,
                         boxShadow: "0 18px 50px rgba(0,0,0,0.25)",
                         padding: 18,
                         position: "relative",
+                        boxSizing: "border-box",
                     }}
                 >
                     {/* Close button (optional UI) */}
@@ -111,7 +112,7 @@ export default function Login() {
                         }}
                         onClick={() => { }}
                     >
-                        ×
+                        x
                     </button>
 
                     {/* State title */}
@@ -206,7 +207,7 @@ export default function Login() {
                     {/* OPTIONAL: state selection dropdown (until we wire map-click state selection) */}
                     <div style={{ marginTop: 12, fontSize: 13, color: "#555" }}>
                         State selection is currently mocked. Next step: make state click on the map set
-                        this modal’s state.
+                        this modal's state.
                     </div>
                 </div>
             </div>
@@ -234,6 +235,7 @@ const inputStyle = {
     borderRadius: 10,
     border: "1px solid #d9d9d9",
     outline: "none",
+    boxSizing: "border-box",
 };
 
 const primaryBtn = {
@@ -246,4 +248,5 @@ const primaryBtn = {
     fontWeight: 800,
     background: "#111827",
     color: "#fff",
+    boxSizing: "border-box",
 };

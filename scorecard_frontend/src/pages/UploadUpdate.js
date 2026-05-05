@@ -22,7 +22,7 @@ const DOC_TYPES = [
     key: 'survey',
     label: 'ITS Deployment Coverage Data',
     accepts: '.xlsx,.csv',
-    acceptsLabel: 'Upload deployment and coverage tables in XLSX or CSV format',
+    acceptsLabel: 'Upload ITS survey workbooks like YYYY_AM_data.xlsx, YYYY_TM_data.xlsx, or YYYY_FM_data.xlsx',
     Icon: FaFileExcel,
   },
   {

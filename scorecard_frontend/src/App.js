@@ -22,6 +22,12 @@ import Projects from "./pages/Projects";
 import Analytics from "./pages/Analytics";
 import Predict from "./pages/Predict";
 import UploadUpdate from "./pages/UploadUpdate";
+import DeploymentAnalysis from "./pages/DeploymentAnalysis";
+import SurveyBasedUpdates from "./pages/SurveyBasedUpdates";
+import FacilityAnalysis from "./pages/FacilityAnalysis";
+import PlanningAnalysis from "./pages/PlanningAnalysis";
+import BenefitCostAnalysis from "./pages/BenefitCostAnalysis";
+import ExpertPanelReview from "./pages/ExpertPanelReview";
 
 import { DashboardProvider } from "./context/DashboardContext";
 import { isAuthed, getRole } from "./utils/auth";
@@ -108,6 +114,11 @@ function AppLayout({ collapsed, onToggleSidebar }) {
 
           <Route
             path="/upload"
+            element={<Navigate to="/upload/files" replace />}
+          />
+
+          <Route
+            path="/upload/files"
             element={
               <ProtectedRoute>
                 <UploadUpdate />
@@ -116,12 +127,76 @@ function AppLayout({ collapsed, onToggleSidebar }) {
           />
 
           <Route
-            path="/reports"
+            path="/upload/survey-based-updates"
+            element={
+              <ProtectedRoute>
+                <SurveyBasedUpdates />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/upload/expert-panel-review"
+            element={
+              <ProtectedRoute>
+                <ExpertPanelReview />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/scorecards"
+            element={<Navigate to="/scorecards/benefit-cost-analysis" replace />}
+          />
+
+          <Route
+            path="/scorecards/benefit-cost-analysis"
+            element={
+              <ProtectedRoute>
+                <BenefitCostAnalysis />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/scorecards/deployment-analysis"
+            element={
+              <ProtectedRoute>
+                <DeploymentAnalysis />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/scorecards/legislative-analysis"
             element={
               <ProtectedRoute>
                 <Reports />
               </ProtectedRoute>
             }
+          />
+
+          <Route
+            path="/scorecards/planning-analysis"
+            element={
+              <ProtectedRoute>
+                <PlanningAnalysis />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/scorecards/facility-analysis"
+            element={
+              <ProtectedRoute>
+                <FacilityAnalysis />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reports"
+            element={<Navigate to="/scorecards/legislative-analysis" replace />}
           />
 
           <Route

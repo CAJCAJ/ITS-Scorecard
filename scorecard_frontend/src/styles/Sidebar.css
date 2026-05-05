@@ -6,7 +6,9 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 200px;
+  width: 400px;
+  min-width: 400px;
+  max-width: 400px;
   height: 100vh;
   background: #1f2d3d; /* slightly deeper than before */
   color: #fff;
@@ -17,6 +19,8 @@
   transition: width 0.25s ease;
   z-index: 100;
   border-right: 1px solid rgba(255,255,255,0.08);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .sidebar.collapsed {
@@ -30,9 +34,10 @@
 .sidebar-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 14px;
   padding: 6px 6px 12px 6px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .collapse-btn {
@@ -58,12 +63,13 @@
 }
 
 .sidebar-title {
-  font-size: 1.05rem;
+  font-size: 1.58rem;
   font-weight: 700;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
+  letter-spacing: 0.3px;
+  white-space: normal;
   margin: 0;
   opacity: 0.95;
+  line-height: 1.2;
 }
 
 .sidebar.collapsed .sidebar-title {
@@ -78,7 +84,7 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .sidebar-menu li {
@@ -91,27 +97,32 @@
 .sidebar-menu li.collapsible {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: rgba(255,255,255,0.92);
   text-decoration: none;
-  padding: 10px 10px;
+  padding: 12px 14px;
   border-radius: 12px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, transform 0.08s ease;
   position: relative;
+  font-size: 1.38rem;
+  line-height: 1.35;
 }
 
 /* Icons */
 .sidebar-menu .icon {
   flex-shrink: 0;
-  font-size: 1.05rem;
-  width: 24px;
+  font-size: 1.16rem;
+  width: 28px;
   text-align: center;
   opacity: 0.95;
 }
 
 .link-text {
-  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Hover */
@@ -123,6 +134,11 @@
 /* Active state (NavLink adds .active) */
 .sidebar-menu li a.active {
   background: rgba(0, 87, 255, 0.18);
+  color: #fff;
+}
+
+.sidebar-link.active-parent {
+  background: rgba(255,255,255,0.10);
   color: #fff;
 }
 
@@ -164,9 +180,13 @@
 
 .sidebar-submenu {
   list-style: none;
-  padding-left: 12px;
-  margin: 6px 0 10px 0;
+  padding-left: 16px;
+  margin: 8px 0 12px 0;
   border-left: 1px dashed rgba(255,255,255,0.15);
+}
+
+.sidebar-submenu .sidebar-link.active::before {
+  left: 4px;
 }
 
 .sidebar-submenu li {
@@ -175,8 +195,9 @@
 
 .sidebar-submenu li a {
   background: rgba(255,255,255,0.04);
-  padding: 9px 10px;
+  padding: 11px 12px;
   border-radius: 12px;
+  font-size: 1.3rem;
 }
 
 .sidebar-submenu li a:hover {
@@ -184,8 +205,8 @@
 }
 
 .sidebar-submenu .icon.small {
-  font-size: 0.9rem;
-  width: 18px;
+  font-size: 0.98rem;
+  width: 22px;
 }
 
 /* =========================
@@ -193,8 +214,10 @@
    ========================= */
 
 .sidebar-logout {
+  margin-top: 16px;
   padding: 10px 6px 6px 6px;
   border-top: 1px solid rgba(255,255,255,0.10);
+  flex-shrink: 0;
 }
 
 .logout-btn {
@@ -204,11 +227,12 @@
   color: #fff;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 10px;
+  gap: 12px;
+  padding: 12px 14px;
   border-radius: 12px;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.08s ease;
+  font-size: 1.32rem;
 }
 
 .logout-btn:hover {
@@ -223,14 +247,4 @@
   justify-content: center;
   padding: 12px 0;
   gap: 0;
-}
-
-/* =========================
-   📱 SMALL SCREEN HELP
-   ========================= */
-
-@media (max-width: 700px) {
-  .sidebar {
-    width: 190px;
-  }
 }
