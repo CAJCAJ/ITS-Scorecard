@@ -35,15 +35,15 @@ const DOC_TYPES = [
   {
     key: 'planning',
     label: 'ITS Project Planning Documents',
-    accepts: '.pdf,.docx,.xlsx',
-    acceptsLabel: 'Upload project planning documents in PDF, DOCX, or XLSX format',
+    accepts: '.pdf,.docx,.xlsx,.csv',
+    acceptsLabel: 'Upload project planning documents or default tables in PDF, DOCX, XLSX, or CSV format',
     Icon: FaFilePdf,
   },
   {
     key: 'facility',
     label: 'ITS Facility Documents',
-    accepts: '.pdf,.docx,.xlsx',
-    acceptsLabel: 'Upload facility reference documents in PDF, DOCX, or XLSX format',
+    accepts: '.pdf,.docx,.xlsx,.csv',
+    acceptsLabel: 'Upload facility reference documents or default tables in PDF, DOCX, XLSX, or CSV format',
     Icon: FaFileAlt,
   },
 ];

@@ -4,6 +4,13 @@ from survey_score_utils import parse_money
 
 BC_QUESTIONS = QUESTION_IDS[TOPIC_KEYS["benefit_cost"]]
 
+
+def unify_ratio(ratio):
+    if ratio is None or ratio <= 0:
+        return 0.0
+    return (ratio ** 2) / (1 + ratio ** 2)
+
+
 def compute_benefit_cost_score(answers):
     existing_mobility = parse_money(answers.get(BC_QUESTIONS["existing_mobility_benefit"]))
     existing_safety = parse_money(answers.get(BC_QUESTIONS["existing_safety_benefit"]))
@@ -25,55 +32,55 @@ def compute_benefit_cost_score(answers):
     unified_score = None
     if total_cost > 0:
         benefit_cost_ratio = total_benefit / total_cost
-        unified_score = (benefit_cost_ratio ** 2) / (1 + benefit_cost_ratio ** 2)
+        unified_score = unify_ratio(benefit_cost_ratio)
 
     breakdown = [
         {
             "label": "Existing Mobility Benefit",
             "value": existing_mobility,
-            "weighted_value": existing_mobility,
+            "weighted_value": unify_ratio(existing_mobility / total_cost) if total_cost > 0 else 0.0,
             "note": "Annual monetized mobility benefit from existing ITS systems.",
         },
         {
             "label": "Existing Safety Benefit",
             "value": existing_safety,
-            "weighted_value": existing_safety,
+            "weighted_value": unify_ratio(existing_safety / total_cost) if total_cost > 0 else 0.0,
             "note": "Annual monetized safety benefit from existing ITS systems.",
         },
         {
             "label": "Existing Environmental Benefit",
             "value": existing_environment,
-            "weighted_value": existing_environment,
+            "weighted_value": unify_ratio(existing_environment / total_cost) if total_cost > 0 else 0.0,
             "note": "Annual monetized environmental benefit from existing ITS systems.",
         },
         {
             "label": "New Mobility Benefit",
             "value": new_mobility,
-            "weighted_value": new_mobility,
+            "weighted_value": unify_ratio(new_mobility / total_cost) if total_cost > 0 else 0.0,
             "note": "Annual monetized mobility benefit from newly deployed ITS systems.",
         },
         {
             "label": "New Safety Benefit",
             "value": new_safety,
-            "weighted_value": new_safety,
+            "weighted_value": unify_ratio(new_safety / total_cost) if total_cost > 0 else 0.0,
             "note": "Annual monetized safety benefit from newly deployed ITS systems.",
         },
         {
             "label": "New Environmental Benefit",
             "value": new_environment,
-            "weighted_value": new_environment,
+            "weighted_value": unify_ratio(new_environment / total_cost) if total_cost > 0 else 0.0,
             "note": "Annual monetized environmental benefit from newly deployed ITS systems.",
         },
         {
             "label": "Existing ITS O&M Cost",
             "value": existing_om_cost,
-            "weighted_value": existing_om_cost,
+            "weighted_value": unify_ratio(total_benefit / existing_om_cost) if existing_om_cost > 0 else 0.0,
             "note": "Annual operations, maintenance, and repair cost for existing ITS systems.",
         },
         {
             "label": "New ITS Deployment Cost",
             "value": new_cost_total,
-            "weighted_value": new_cost_total,
+            "weighted_value": unify_ratio(total_benefit / new_cost_total) if new_cost_total > 0 else 0.0,
             "note": "Annual design, planning, testing, and deployment cost for new ITS systems.",
         },
     ]

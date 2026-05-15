@@ -5,6 +5,9 @@ import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers } from "../utils/surveyUpdates";
 
+const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
+const STATE_OPTIONS = ["Texas", "New Jersey"];
+
 function formatValue(label, value) {
   if (label === "Award Funding") {
     return value > 0 ? `$${Number(value).toLocaleString()}` : 0;
@@ -15,6 +18,8 @@ function formatValue(label, value) {
 export default function PlanningAnalysis() {
   const [allAnswers, setAllAnswers] = useState(() => loadSurveyAnswers());
   const [planningScore, setPlanningScore] = useState(null);
+  const [selectedYear, setSelectedYear] = useState("2023");
+  const [selectedState, setSelectedState] = useState("Texas");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,15 +33,30 @@ export default function PlanningAnalysis() {
     return String(value || "").trim() !== "";
   }).length;
 
-  const fetchScore = async (answers) => {
+  const fetchScore = async (answers, stateName = selectedState, year = selectedYear) => {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.post(
-        apiUrl(`/survey-scores/${TOPIC_KEYS.PROJECT_PLANNING}`),
-        { answers }
-      );
-      setPlanningScore(response.data);
+      const response = await axios.get(apiUrl("/planning/score"), {
+        params: {
+          state: stateName,
+          year,
+        },
+      });
+      if (response.data?.has_input) {
+        setPlanningScore(response.data);
+      } else {
+        const fallbackResponse = await axios.post(
+          apiUrl(`/survey-scores/${TOPIC_KEYS.PROJECT_PLANNING}`),
+          { answers }
+        );
+        setPlanningScore({
+          ...fallbackResponse.data,
+          source: fallbackResponse.data?.has_input
+            ? "Local Browser Answers"
+            : response.data?.source || "No Value Available",
+        });
+      }
     } catch (requestError) {
       setPlanningScore(null);
       setError(
@@ -49,13 +69,17 @@ export default function PlanningAnalysis() {
   };
 
   useEffect(() => {
-    fetchScore(planningAnswers);
-  }, [planningAnswers]);
+    fetchScore(planningAnswers, selectedState, selectedYear);
+  }, [planningAnswers, selectedState, selectedYear]);
 
   const handleRefresh = () => {
     const latestAnswers = loadSurveyAnswers();
     setAllAnswers(latestAnswers);
-    fetchScore(getTopicAnswers(latestAnswers, TOPIC_KEYS.PROJECT_PLANNING));
+    fetchScore(
+      getTopicAnswers(latestAnswers, TOPIC_KEYS.PROJECT_PLANNING),
+      selectedState,
+      selectedYear
+    );
   };
 
   return (
@@ -79,9 +103,51 @@ export default function PlanningAnalysis() {
           </div>
         </div>
 
-        <button type="button" className="btn btn-outline" onClick={handleRefresh}>
-          Refresh Inputs
-        </button>
+        <div style={{ display: "flex", gap: "12px", alignItems: "end", flexWrap: "wrap" }}>
+          <label>
+            <div style={{ fontWeight: 700, marginBottom: "8px" }}>Year</div>
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(event.target.value)}
+              style={{
+                padding: "12px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cfd8e3",
+                fontSize: "1rem",
+                background: "#fff",
+              }}
+            >
+              {YEAR_OPTIONS.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <div style={{ fontWeight: 700, marginBottom: "8px" }}>State</div>
+            <select
+              value={selectedState}
+              onChange={(event) => setSelectedState(event.target.value)}
+              style={{
+                padding: "12px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cfd8e3",
+                fontSize: "1rem",
+                background: "#fff",
+              }}
+            >
+              {STATE_OPTIONS.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="btn btn-outline" onClick={handleRefresh}>
+            Refresh Inputs
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -147,7 +213,7 @@ export default function PlanningAnalysis() {
                     <tr>
                       <th>Planning Component</th>
                       <th>Reported Value</th>
-                      <th>Scoring Contribution</th>
+                      <th>Unified Score</th>
                       <th>Method Note</th>
                     </tr>
                   </thead>
@@ -169,8 +235,21 @@ export default function PlanningAnalysis() {
               <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>Summary</h3>
               <div style={{ color: "#607185", lineHeight: 1.7 }}>
                 <p>
-                  The score shown here is based on the answers currently saved
-                  under Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.PROJECT_PLANNING)}.
+                  Source: {planningScore.source || "No Value Available"}
+                </p>
+                {planningScore.dataset_version ? (
+                  <p>Dataset Version: {planningScore.dataset_version}</p>
+                ) : null}
+                {planningScore.evidence_level ? (
+                  <p>Evidence Level: {planningScore.evidence_level}</p>
+                ) : null}
+                {planningScore.source_notes ? (
+                  <p>{planningScore.source_notes}</p>
+                ) : null}
+                <p>
+                  If an uploaded planning default table has a matching row for
+                  {` ${selectedState} ${selectedYear}`}, it is used before
+                  saved Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.PROJECT_PLANNING)}.
                 </p>
                 <p>
                   Use the refresh button if you updated the answers in another

@@ -5,6 +5,9 @@ import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers } from "../utils/surveyUpdates";
 
+const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
+const STATE_OPTIONS = ["Texas", "New Jersey"];
+
 function formatMoney(value) {
   return `$${Number(value || 0).toLocaleString(undefined, {
     maximumFractionDigits: 0,
@@ -24,6 +27,8 @@ function formatValue(label, value) {
 export default function BenefitCostAnalysis() {
   const [allAnswers, setAllAnswers] = useState(() => loadSurveyAnswers());
   const [result, setResult] = useState(null);
+  const [selectedYear, setSelectedYear] = useState("2023");
+  const [selectedState, setSelectedState] = useState("Texas");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,14 +42,33 @@ export default function BenefitCostAnalysis() {
     return String(value || "").trim() !== "";
   }).length;
 
-  const fetchScore = async (answers) => {
+  const activeInputCount = result?.breakdown
+    ? result.breakdown.filter((item) => Number(item.value) > 0).length
+    : answeredCount;
+
+  const fetchScore = async (answers, stateName = selectedState, year = selectedYear) => {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.post(apiUrl("/benefit-cost/score"), {
-        answers,
+      const response = await axios.get(apiUrl("/benefit-cost/score"), {
+        params: {
+          state: stateName,
+          year,
+        },
       });
-      setResult(response.data);
+      if (response.data?.has_required_input) {
+        setResult(response.data);
+      } else {
+        const fallbackResponse = await axios.post(apiUrl("/benefit-cost/score"), {
+          answers,
+        });
+        setResult({
+          ...fallbackResponse.data,
+          source: fallbackResponse.data?.has_required_input
+            ? "Local Browser Answers"
+            : response.data?.source || "No Value Available",
+        });
+      }
     } catch (requestError) {
       setResult(null);
       setError(
@@ -57,13 +81,17 @@ export default function BenefitCostAnalysis() {
   };
 
   useEffect(() => {
-    fetchScore(bcAnswers);
-  }, [bcAnswers]);
+    fetchScore(bcAnswers, selectedState, selectedYear);
+  }, [bcAnswers, selectedState, selectedYear]);
 
   const handleRefresh = () => {
     const latestAnswers = loadSurveyAnswers();
     setAllAnswers(latestAnswers);
-    fetchScore(getTopicAnswers(latestAnswers, TOPIC_KEYS.BENEFIT_COST));
+    fetchScore(
+      getTopicAnswers(latestAnswers, TOPIC_KEYS.BENEFIT_COST),
+      selectedState,
+      selectedYear
+    );
   };
 
   const noUsableInput =
@@ -92,9 +120,51 @@ export default function BenefitCostAnalysis() {
           </div>
         </div>
 
-        <button type="button" className="btn btn-outline" onClick={handleRefresh}>
-          Refresh Inputs
-        </button>
+        <div style={{ display: "flex", gap: "12px", alignItems: "end", flexWrap: "wrap" }}>
+          <label>
+            <div style={{ fontWeight: 700, marginBottom: "8px" }}>Year</div>
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(event.target.value)}
+              style={{
+                padding: "12px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cfd8e3",
+                fontSize: "1rem",
+                background: "#fff",
+              }}
+            >
+              {YEAR_OPTIONS.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <div style={{ fontWeight: 700, marginBottom: "8px" }}>State</div>
+            <select
+              value={selectedState}
+              onChange={(event) => setSelectedState(event.target.value)}
+              style={{
+                padding: "12px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cfd8e3",
+                fontSize: "1rem",
+                background: "#fff",
+              }}
+            >
+              {STATE_OPTIONS.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="btn btn-outline" onClick={handleRefresh}>
+            Refresh Inputs
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -124,8 +194,8 @@ export default function BenefitCostAnalysis() {
         <>
           <div className="metrics-grid">
             <DashboardCard
-              title="Answered Inputs"
-              value={answeredCount}
+              title="Active Inputs"
+              value={activeInputCount}
               color="#0057ff"
             />
             <DashboardCard
@@ -168,7 +238,7 @@ export default function BenefitCostAnalysis() {
                     <tr>
                       <th>Component</th>
                       <th>Reported Value</th>
-                      <th>Scoring Contribution</th>
+                      <th>Unified Score</th>
                       <th>Method Note</th>
                     </tr>
                   </thead>
@@ -178,9 +248,7 @@ export default function BenefitCostAnalysis() {
                         <td className="kw-cell">{item.label}</td>
                         <td>{formatValue(item.label, item.value)}</td>
                         <td>
-                          {item.label.includes("Benefit") || item.label.includes("Cost")
-                            ? formatMoney(item.weighted_value)
-                            : Number(item.weighted_value).toFixed(0)}
+                          {Number(item.weighted_value).toFixed(3)}
                         </td>
                         <td className="source-cell">{item.note}</td>
                       </tr>
@@ -194,8 +262,24 @@ export default function BenefitCostAnalysis() {
               <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>Summary</h3>
               <div style={{ color: "#607185", lineHeight: 1.7 }}>
                 <p>
-                  The score shown here is based on the answers currently saved
-                  under Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.BENEFIT_COST)}.
+                  Source: {result.source || "No Value Available"}
+                </p>
+                {result.dataset_version ? (
+                  <p>Dataset Version: {result.dataset_version}</p>
+                ) : null}
+                {result.evidence_level ? (
+                  <p>Evidence Level: {result.evidence_level}</p>
+                ) : null}
+                {result.conversion_basis ? (
+                  <p>{result.conversion_basis}</p>
+                ) : null}
+                {result.source_notes ? (
+                  <p>{result.source_notes}</p>
+                ) : null}
+                <p>
+                  If an uploaded B/C default table has a matching row for
+                  {` ${selectedState} ${selectedYear}`}, it is used before
+                  saved Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.BENEFIT_COST)}.
                 </p>
                 <p>
                   Use the refresh button if you updated the answers in another

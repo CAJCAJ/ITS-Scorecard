@@ -109,6 +109,7 @@ def build_review_items(domain_key):
             "subaspect_key": key,
             "subaspect_label": label,
             "current_value": str(baseline_values.get(key, "")),
+            "unified_score": "",
             "source_basis": "Preloaded Baseline" if key in baseline_values else "No Value Available",
             "expert_judgment": "",
             "suggested_value": "",
@@ -180,7 +181,7 @@ def survey_answer_values(domain_key, answers):
         policy_docs = answers.get("doc_policy_presence")
         if isinstance(policy_docs, list):
             values["policy_document_presence"] = {
-                "current_value": format_number(len(policy_docs) / 5),
+                "current_value": f"{len(policy_docs)} of 5 policy documents",
                 "source_basis": "Calculated from Survey-Based Updates",
             }
         support_counts = [
@@ -201,12 +202,18 @@ def survey_answer_values(domain_key, answers):
             weighted += count * score
         if total:
             values["legislative_support"] = {
-                "current_value": format_number(weighted / total),
+                "current_value": f"{total} scored documents; average raw score {format_number(weighted / total)}",
                 "source_basis": "Calculated from Survey-Based Updates",
             }
         if str(answers.get("doc_tech_doc_maturity_pct", "")).strip():
+            tech_eval_count = str(answers.get("doc_tech_eval_count") or "").strip()
+            maturity_pct = format_percent(answers.get("doc_tech_doc_maturity_pct"))
             values["technology_documentation_maturity"] = {
-                "current_value": format_percent(answers.get("doc_tech_doc_maturity_pct")),
+                "current_value": (
+                    f"{tech_eval_count} technology areas; {maturity_pct} mature"
+                    if tech_eval_count
+                    else f"{maturity_pct} mature"
+                ),
                 "source_basis": "Calculated from Survey-Based Updates",
             }
         return values
@@ -267,7 +274,8 @@ def deployment_upload_values(default_value_items):
         if not subaspect_key:
             continue
         values[subaspect_key] = {
-            "current_value": format_number(item.get("default_value")),
+            "current_value": f"{item.get('scored_agency_count', 0)} scored agencies",
+            "unified_score": format_number(item.get("default_value")),
             "source_basis": "Calculated from Upload",
         }
     return values
@@ -278,7 +286,11 @@ def legislation_upload_values(analysis):
         return {}
     return {
         "legislative_support": {
-            "current_value": format_number(analysis.get("averageRawScore")),
+            "current_value": (
+                f"{analysis.get('totalBills', 0)} bills; average raw score "
+                f"{format_number(analysis.get('averageRawScore'))}"
+            ),
+            "unified_score": format_number(analysis.get("unifiedScore")),
             "source_basis": "Calculated from Upload",
         }
     }

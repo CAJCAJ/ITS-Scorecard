@@ -1,6 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { FaCheckCircle, FaRegSave, FaSearch } from "react-icons/fa";
+import {
+  FaBookOpen,
+  FaCheckCircle,
+  FaExternalLinkAlt,
+  FaRegSave,
+  FaSearch,
+  FaTimes,
+} from "react-icons/fa";
 import { apiUrl } from "../services/api";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
@@ -13,6 +20,7 @@ const JUDGMENT_OPTIONS = [
   "Needs Method Revision",
 ];
 const CONFIDENCE_OPTIONS = ["Low", "Medium", "High"];
+const TECHNICAL_REPORT_URL = `${process.env.PUBLIC_URL || ""}/ITS%20Scorecard%20Technical%20Report%20Reference.pdf`;
 
 function emptyForm() {
   return {
@@ -47,6 +55,7 @@ export default function ExpertPanelReview() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     axios
@@ -54,6 +63,19 @@ export default function ExpertPanelReview() {
       .then((response) => setDomains(response.data.domains || []))
       .catch(() => setError("Could not load review domains."));
   }, []);
+
+  useEffect(() => {
+    if (!showReport) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setShowReport(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showReport]);
 
   const canLoad = Boolean(form.review_year && form.state && form.domain_key);
   const changedCount = useMemo(
@@ -106,6 +128,7 @@ export default function ExpertPanelReview() {
       return {
         ...item,
         current_value: currentValueItem.current_value || "",
+        unified_score: currentValueItem.unified_score || "",
         source_basis: currentValueItem.source_basis || "No Value Available",
       };
     });
@@ -203,7 +226,7 @@ export default function ExpertPanelReview() {
         id: session.id,
         status: session.status,
       }));
-      setItems(session.items || []);
+      setItems(mergeCurrentValues(session.items || [], items));
       setMessage(status === "submitted" ? "Review submitted." : "Draft saved.");
     } catch (requestError) {
       setError(
@@ -372,8 +395,25 @@ export default function ExpertPanelReview() {
           }}
         >
           <h2 style={{ margin: 0, color: "#1f2d3d" }}>Subaspect Review</h2>
-          <div style={{ color: "#607185", fontWeight: 700 }}>
-            Reviewed Rows: {changedCount} / {items.length}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowReport(true)}
+            >
+              <FaBookOpen style={{ marginRight: "8px" }} />
+              Technical Report
+            </button>
+            <div style={{ color: "#607185", fontWeight: 700 }}>
+              Reviewed Rows: {changedCount} / {items.length}
+            </div>
           </div>
         </div>
 
@@ -385,11 +425,12 @@ export default function ExpertPanelReview() {
           <div style={{ color: "#607185", lineHeight: 1.7 }}>Loading review rows...</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="preview-table" style={{ minWidth: "1480px" }}>
+            <table className="preview-table" style={{ minWidth: "1620px" }}>
               <thead>
                 <tr>
                   <th style={{ width: "260px" }}>Subaspect</th>
                   <th style={{ width: "150px" }}>Current Value</th>
+                  <th style={{ width: "140px" }}>Unified Score</th>
                   <th style={{ width: "210px" }}>Source</th>
                   <th style={{ width: "190px" }}>Judgment</th>
                   <th style={{ width: "150px" }}>Suggested Value</th>
@@ -405,6 +446,13 @@ export default function ExpertPanelReview() {
                     <td>
                       <input
                         value={item.current_value || ""}
+                        readOnly
+                        style={{ ...fieldStyle(), background: "#f8fafc" }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={item.unified_score || ""}
                         readOnly
                         style={{ ...fieldStyle(), background: "#f8fafc" }}
                       />
@@ -492,6 +540,83 @@ export default function ExpertPanelReview() {
           style={{ ...fieldStyle(), resize: "vertical", minHeight: "140px" }}
         />
       </section>
+
+      {showReport && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="ITS Scorecard technical report"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(15, 23, 42, 0.68)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+          }}
+        >
+          <div
+            style={{
+              width: "min(1180px, 96vw)",
+              height: "min(860px, 92vh)",
+              background: "#fff",
+              borderRadius: "8px",
+              boxShadow: "0 24px 70px rgba(0,0,0,0.32)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "16px",
+                padding: "14px 18px",
+                borderBottom: "1px solid #d8e0ea",
+                background: "#f8fafc",
+              }}
+            >
+              <div style={{ fontWeight: 800, color: "#1f2d3d" }}>
+                ITS Scorecard Technical Report Reference
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <a
+                  className="btn btn-outline"
+                  href={TECHNICAL_REPORT_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: "none" }}
+                >
+                  <FaExternalLinkAlt style={{ marginRight: "8px" }} />
+                  Open PDF
+                </a>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowReport(false)}
+                  aria-label="Close technical report"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            </div>
+            <iframe
+              title="ITS Scorecard Technical Report Reference"
+              src={TECHNICAL_REPORT_URL}
+              style={{
+                border: 0,
+                width: "100%",
+                flex: 1,
+                background: "#fff",
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

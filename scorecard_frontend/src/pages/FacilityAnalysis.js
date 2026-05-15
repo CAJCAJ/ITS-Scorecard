@@ -5,9 +5,14 @@ import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers } from "../utils/surveyUpdates";
 
+const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
+const STATE_OPTIONS = ["Texas", "New Jersey"];
+
 export default function FacilityAnalysis() {
   const [allAnswers, setAllAnswers] = useState(() => loadSurveyAnswers());
   const [facilityScore, setFacilityScore] = useState(null);
+  const [selectedYear, setSelectedYear] = useState("2023");
+  const [selectedState, setSelectedState] = useState("Texas");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,15 +26,34 @@ export default function FacilityAnalysis() {
     return String(value || "").trim() !== "";
   }).length;
 
-  const fetchScore = async (answers) => {
+  const activeInputCount = facilityScore?.breakdown
+    ? facilityScore.breakdown.filter((item) => Number(item.weighted_value) > 0).length
+    : answeredCount;
+
+  const fetchScore = async (answers, stateName = selectedState, year = selectedYear) => {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.post(
-        apiUrl(`/survey-scores/${TOPIC_KEYS.FACILITY}`),
-        { answers }
-      );
-      setFacilityScore(response.data);
+      const response = await axios.get(apiUrl("/facility/score"), {
+        params: {
+          state: stateName,
+          year,
+        },
+      });
+      if (response.data?.has_input) {
+        setFacilityScore(response.data);
+      } else {
+        const fallbackResponse = await axios.post(
+          apiUrl(`/survey-scores/${TOPIC_KEYS.FACILITY}`),
+          { answers }
+        );
+        setFacilityScore({
+          ...fallbackResponse.data,
+          source: fallbackResponse.data?.has_input
+            ? "Local Browser Answers"
+            : response.data?.source || "No Value Available",
+        });
+      }
     } catch (requestError) {
       setFacilityScore(null);
       setError(
@@ -42,13 +66,17 @@ export default function FacilityAnalysis() {
   };
 
   useEffect(() => {
-    fetchScore(facilityAnswers);
-  }, [facilityAnswers]);
+    fetchScore(facilityAnswers, selectedState, selectedYear);
+  }, [facilityAnswers, selectedState, selectedYear]);
 
   const handleRefresh = () => {
     const latestAnswers = loadSurveyAnswers();
     setAllAnswers(latestAnswers);
-    fetchScore(getTopicAnswers(latestAnswers, TOPIC_KEYS.FACILITY));
+    fetchScore(
+      getTopicAnswers(latestAnswers, TOPIC_KEYS.FACILITY),
+      selectedState,
+      selectedYear
+    );
   };
 
   return (
@@ -72,9 +100,51 @@ export default function FacilityAnalysis() {
           </div>
         </div>
 
-        <button type="button" className="btn btn-outline" onClick={handleRefresh}>
-          Refresh Inputs
-        </button>
+        <div style={{ display: "flex", gap: "12px", alignItems: "end", flexWrap: "wrap" }}>
+          <label>
+            <div style={{ fontWeight: 700, marginBottom: "8px" }}>Year</div>
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(event.target.value)}
+              style={{
+                padding: "12px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cfd8e3",
+                fontSize: "1rem",
+                background: "#fff",
+              }}
+            >
+              {YEAR_OPTIONS.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <div style={{ fontWeight: 700, marginBottom: "8px" }}>State</div>
+            <select
+              value={selectedState}
+              onChange={(event) => setSelectedState(event.target.value)}
+              style={{
+                padding: "12px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cfd8e3",
+                fontSize: "1rem",
+                background: "#fff",
+              }}
+            >
+              {STATE_OPTIONS.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="btn btn-outline" onClick={handleRefresh}>
+            Refresh Inputs
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -101,8 +171,8 @@ export default function FacilityAnalysis() {
         <>
           <div className="metrics-grid">
             <DashboardCard
-              title="Answered Inputs"
-              value={answeredCount}
+              title="Active Inputs"
+              value={activeInputCount}
               color="#0057ff"
             />
             <DashboardCard
@@ -135,7 +205,7 @@ export default function FacilityAnalysis() {
                     <tr>
                       <th>Facility Component</th>
                       <th>Reported Value</th>
-                      <th>Scoring Contribution</th>
+                      <th>Unified Score</th>
                       <th>Method Note</th>
                     </tr>
                   </thead>
@@ -157,8 +227,21 @@ export default function FacilityAnalysis() {
               <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>Summary</h3>
               <div style={{ color: "#607185", lineHeight: 1.7 }}>
                 <p>
-                  The score shown here is based on the answers currently saved
-                  under Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.FACILITY)}.
+                  Source: {facilityScore.source || "No Value Available"}
+                </p>
+                {facilityScore.dataset_version ? (
+                  <p>Dataset Version: {facilityScore.dataset_version}</p>
+                ) : null}
+                {facilityScore.evidence_level ? (
+                  <p>Evidence Level: {facilityScore.evidence_level}</p>
+                ) : null}
+                {facilityScore.source_notes ? (
+                  <p>{facilityScore.source_notes}</p>
+                ) : null}
+                <p>
+                  If an uploaded facility default table has a matching row for
+                  {` ${selectedState} ${selectedYear}`}, it is used before
+                  saved Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.FACILITY)}.
                 </p>
                 <p>
                   Use the refresh button if you updated the answers in another

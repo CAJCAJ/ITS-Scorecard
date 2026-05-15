@@ -569,12 +569,66 @@ def get_deployment_default_values():
         return jsonify({"error": f"Could not load deployment default values: {str(exc)}"}), 500
 
 
-@app.route("/api/benefit-cost/score", methods=["POST"])
+@app.route("/api/benefit-cost/score", methods=["GET", "POST"])
 def get_benefit_cost_score():
     try:
+        if request.method == "GET":
+            state_name = str(request.args.get("state", "")).strip()
+            survey_year = str(request.args.get("year", "")).strip()
+            if not state_name or not survey_year:
+                return jsonify({"error": "Both state and year are required."}), 400
+
+            benefit_cost_record, document = find_latest_benefit_cost_record(
+                state_name, survey_year
+            )
+            if benefit_cost_record:
+                answers = benefit_cost_record_to_answers(benefit_cost_record)
+                result = compute_benefit_cost_score(answers)
+                result["source"] = "Calculated from Upload"
+                result["state"] = state_name
+                result["survey_year"] = survey_year
+                result["dataset_version"] = get_record_value(
+                    benefit_cost_record, "dataset_version", "Dataset Version"
+                )
+                result["evidence_level"] = get_record_value(
+                    benefit_cost_record, "evidence_level", "Evidence Level"
+                )
+                result["benefit_source_urls"] = get_record_value(
+                    benefit_cost_record, "benefit_source_urls", "Benefit Source URLs"
+                )
+                result["cost_source_urls"] = get_record_value(
+                    benefit_cost_record, "cost_source_urls", "Cost Source URLs"
+                )
+                result["conversion_basis"] = get_record_value(
+                    benefit_cost_record, "conversion_basis", "Conversion Basis"
+                )
+                result["source_notes"] = get_record_value(
+                    benefit_cost_record, "source_notes", "Source Notes"
+                )
+                result["document_id"] = document.get("id") if document else None
+                return jsonify(result)
+
+            submission, answers = fetch_latest_survey_update(
+                "benefit_cost", state_name, survey_year
+            )
+            if answers:
+                result = compute_benefit_cost_score(answers)
+                result["source"] = "Calculated from Survey-Based Updates"
+                result["state"] = state_name
+                result["survey_year"] = survey_year
+                result["submission_id"] = submission.get("id") if submission else None
+                return jsonify(result)
+
+            result = compute_benefit_cost_score({})
+            result["source"] = "No Value Available"
+            result["state"] = state_name
+            result["survey_year"] = survey_year
+            return jsonify(result)
+
         payload = request.get_json(silent=True) or {}
         answers = payload.get("answers", {}) if isinstance(payload, dict) else {}
         result = compute_benefit_cost_score(answers if isinstance(answers, dict) else {})
+        result["source"] = "Provided Answers"
         return jsonify(result)
     except Exception as exc:
         return jsonify({"error": f"Could not calculate benefit/cost score: {str(exc)}"}), 500
@@ -735,6 +789,46 @@ def save_survey_update_submission():
 
 
 def get_uploaded_review_values(domain_key, state_name, survey_year):
+    if domain_key == "benefit_cost":
+        benefit_cost_record, _ = find_latest_benefit_cost_record(state_name, survey_year)
+        if not benefit_cost_record:
+            return {}
+        answers = benefit_cost_record_to_answers(benefit_cost_record)
+        return add_review_scores(domain_key, {
+            "existing_mobility_benefit": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_mobility_benefit") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "existing_safety_benefit": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_safety_benefit") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "existing_environment_benefit": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_environment_benefit") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "new_mobility_benefit": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_new_mobility_benefit") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "new_safety_benefit": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_new_safety_benefit") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "new_environment_benefit": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_new_environment_benefit") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "existing_om_cost": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_om_cost_total") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "new_deployment_cost": {
+                "current_value": str(get_record_value(benefit_cost_record, "bc_new_cost_total") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+        }, answers)
+
     if domain_key == "deployment_coverage":
         survey_documents = execute_paged_select(
             "documents",
@@ -756,7 +850,398 @@ def get_uploaded_review_values(domain_key, state_name, survey_year):
             return {}
         return legislation_upload_values(analyze_legislation_records(records))
 
+    if domain_key == "project_planning":
+        planning_record, _ = find_latest_planning_record(state_name, survey_year)
+        if not planning_record:
+            return {}
+        answers = planning_record_to_answers(planning_record)
+        return add_review_scores(domain_key, {
+            "federal_awards": {
+                "current_value": str(get_record_value(planning_record, "plan_award_count") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "award_funding": {
+                "current_value": str(get_record_value(planning_record, "plan_award_funding") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "planned_projects": {
+                "current_value": str(get_record_value(planning_record, "plan_doc_count") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+            "planned_corridor_miles": {
+                "current_value": str(get_record_value(planning_record, "plan_corridor_miles") or ""),
+                "source_basis": "Calculated from Upload",
+            },
+        }, answers)
+
+    if domain_key == "facility":
+        facility_record, _ = find_latest_facility_record(state_name, survey_year)
+        if not facility_record:
+            return {}
+        answers = facility_record_to_answers(facility_record)
+        testbed_parts = [
+            str(get_record_value(facility_record, "fac_testbed_presence", "Facility Testbed Presence") or "").strip(),
+            str(get_record_value(facility_record, "fac_testbed_extent", "Facility Testbed Extent") or "").strip(),
+        ]
+        return add_review_scores(domain_key, {
+            "operations_centers": {
+                "current_value": str(
+                    get_record_value(facility_record, "fac_toc_count", "Facility TOC Count") or ""
+                ),
+                "source_basis": "Calculated from Upload",
+            },
+            "om_facilities_fleets": {
+                "current_value": str(
+                    get_record_value(facility_record, "fac_om_sites", "Facility O&M Sites") or ""
+                ),
+                "source_basis": "Calculated from Upload",
+            },
+            "labs_rd_units": {
+                "current_value": str(
+                    get_record_value(facility_record, "fac_labs", "Facility Labs") or ""
+                ),
+                "source_basis": "Calculated from Upload",
+            },
+            "resource_centers": {
+                "current_value": str(
+                    get_record_value(
+                        facility_record,
+                        "fac_resource_centers",
+                        "Facility Resource Centers",
+                    )
+                    or ""
+                ),
+                "source_basis": "Calculated from Upload",
+            },
+            "testbeds_pilot_corridors": {
+                "current_value": " | ".join(part for part in testbed_parts if part),
+                "source_basis": "Calculated from Upload",
+            },
+        }, answers)
+
     return {}
+
+
+def format_review_score(value):
+    if value is None:
+        return ""
+    try:
+        return f"{float(value):.3f}"
+    except (TypeError, ValueError):
+        return str(value or "")
+
+
+def get_breakdown_value(score_result, label):
+    for item in score_result.get("breakdown", []):
+        if item.get("label") == label:
+            return item.get("weighted_value")
+    return None
+
+
+def add_planning_review_scores(values_by_key, answers):
+    score_result = compute_planning_score(answers)
+    score_labels = {
+        "federal_awards": "Federally Recognized Grants",
+        "award_funding": "Award Funding",
+        "planned_projects": "Planned ITS Projects",
+        "planned_corridor_miles": "Planned Corridor Miles",
+    }
+    for subaspect_key, label in score_labels.items():
+        if subaspect_key in values_by_key:
+            values_by_key[subaspect_key]["unified_score"] = format_review_score(
+                get_breakdown_value(score_result, label)
+            )
+    return values_by_key
+
+
+def add_facility_review_scores(values_by_key, answers):
+    score_result = compute_facility_capacity_score(answers)
+    score_labels = {
+        "operations_centers": ["Traffic Operations Centers"],
+        "om_facilities_fleets": ["ITS O&M Facilities / Fleets"],
+        "labs_rd_units": ["ITS Labs / R&D Units"],
+        "resource_centers": ["ITS Resource Centers / Consortia"],
+        "testbeds_pilot_corridors": ["Testbed Availability", "Testbed Extent Bonus"],
+    }
+    for subaspect_key, labels in score_labels.items():
+        if subaspect_key not in values_by_key:
+            continue
+        total_score = sum(
+            float(get_breakdown_value(score_result, label) or 0.0) for label in labels
+        )
+        values_by_key[subaspect_key]["unified_score"] = format_review_score(total_score)
+    return values_by_key
+
+
+def add_review_scores(domain_key, values_by_key, answers):
+    if domain_key == "benefit_cost":
+        score_result = compute_benefit_cost_score(answers)
+        score_labels = {
+            "existing_mobility_benefit": "Existing Mobility Benefit",
+            "existing_safety_benefit": "Existing Safety Benefit",
+            "existing_environment_benefit": "Existing Environmental Benefit",
+            "new_mobility_benefit": "New Mobility Benefit",
+            "new_safety_benefit": "New Safety Benefit",
+            "new_environment_benefit": "New Environmental Benefit",
+            "existing_om_cost": "Existing ITS O&M Cost",
+            "new_deployment_cost": "New ITS Deployment Cost",
+        }
+        for subaspect_key, label in score_labels.items():
+            if subaspect_key in values_by_key:
+                values_by_key[subaspect_key]["unified_score"] = format_review_score(
+                    get_breakdown_value(score_result, label)
+                )
+        return values_by_key
+
+    if domain_key == "deployment_coverage":
+        score_result = compute_deployment_coverage_score(answers)
+        for item in score_result.get("breakdown", []):
+            subaspect_key = None
+            for domain_name, key in {
+                "Signal Management and Intersection Control": "signal_management",
+                "Traffic Monitoring and Data Collection": "traffic_monitoring",
+                "Vulnerable Road User Safety Applications": "vru_safety",
+                "Traveler Information and User Services": "traveler_information",
+                "Active Traffic and Demand Management": "atdm",
+                "Safety Enforcement and Incident Response": "safety_enforcement",
+                "Road Weather Information and Response": "road_weather",
+                "Work Zone ITS and Queue Warning": "work_zone",
+                "Transit and Fleet ITS Technology": "transit_fleet",
+                "Connected, Automated, and Emerging Vehicle Technology": "connected_automated",
+                "ITS Program Planning and Operational Support": "program_support",
+            }.items():
+                if item.get("label") == domain_name:
+                    subaspect_key = key
+                    break
+            if subaspect_key in values_by_key:
+                values_by_key[subaspect_key]["unified_score"] = format_review_score(
+                    item.get("weighted_value")
+                )
+        return values_by_key
+
+    if domain_key == "policy_legislation":
+        score_result = compute_policy_legislation_score(answers)
+        score_labels = {
+            "policy_document_presence": "Foundational Policy Documents",
+            "legislative_support": "Legislative Support",
+            "technology_documentation_maturity": "Technology Documentation Maturity",
+        }
+        for subaspect_key, label in score_labels.items():
+            if subaspect_key in values_by_key:
+                values_by_key[subaspect_key]["unified_score"] = format_review_score(
+                    get_breakdown_value(score_result, label)
+                )
+        return values_by_key
+
+    if domain_key == "project_planning":
+        return add_planning_review_scores(values_by_key, answers)
+    if domain_key == "facility":
+        return add_facility_review_scores(values_by_key, answers)
+    return values_by_key
+
+
+def split_semicolon_values(value):
+    if isinstance(value, list):
+        return value
+    text = str(value or "").strip()
+    if not text:
+        return []
+    return [part.strip() for part in text.split(";") if part.strip()]
+
+
+def benefit_cost_record_to_answers(record):
+    return {
+        "bc_eval_year": get_record_value(record, "survey_year", "Survey Year"),
+        "bc_existing_mobility_benefit": get_record_value(
+            record, "bc_existing_mobility_benefit", "Existing Mobility Benefit"
+        ),
+        "bc_existing_safety_benefit": get_record_value(
+            record, "bc_existing_safety_benefit", "Existing Safety Benefit"
+        ),
+        "bc_existing_environment_benefit": get_record_value(
+            record,
+            "bc_existing_environment_benefit",
+            "Existing Environmental Benefit",
+        ),
+        "bc_new_mobility_benefit": get_record_value(
+            record, "bc_new_mobility_benefit", "New Mobility Benefit"
+        ),
+        "bc_new_safety_benefit": get_record_value(
+            record, "bc_new_safety_benefit", "New Safety Benefit"
+        ),
+        "bc_new_environment_benefit": get_record_value(
+            record, "bc_new_environment_benefit", "New Environmental Benefit"
+        ),
+        "bc_existing_om_cost_total": get_record_value(
+            record, "bc_existing_om_cost_total", "Existing O&M Cost Total"
+        ),
+        "bc_new_cost_total": get_record_value(
+            record, "bc_new_cost_total", "New Cost Total"
+        ),
+    }
+
+
+def planning_record_to_answers(record):
+    return {
+        "plan_award_count": get_record_value(record, "plan_award_count", "Plan Award Count"),
+        "plan_award_programs": split_semicolon_values(
+            get_record_value(record, "plan_award_programs", "Plan Award Programs")
+        ),
+        "plan_award_funding": get_record_value(record, "plan_award_funding", "Plan Award Funding"),
+        "plan_doc_count": get_record_value(record, "plan_doc_count", "Plan Doc Count"),
+        "plan_corridor_miles": get_record_value(record, "plan_corridor_miles", "Plan Corridor Miles"),
+        "plan_doc_sources": split_semicolon_values(
+            get_record_value(record, "plan_doc_sources", "Plan Doc Sources")
+        ),
+    }
+
+
+def facility_record_to_answers(record):
+    return {
+        "fac_toc_count": get_record_value(record, "fac_toc_count", "Facility TOC Count"),
+        "fac_om_sites": get_record_value(record, "fac_om_sites", "Facility O&M Sites"),
+        "fac_labs": get_record_value(record, "fac_labs", "Facility Labs"),
+        "fac_resource_centers": get_record_value(
+            record, "fac_resource_centers", "Facility Resource Centers"
+        ),
+        "fac_testbed_presence": get_record_value(
+            record, "fac_testbed_presence", "Facility Testbed Presence"
+        ),
+        "fac_testbed_extent": get_record_value(
+            record, "fac_testbed_extent", "Facility Testbed Extent"
+        ),
+        "fac_staff_support": get_record_value(
+            record, "fac_staff_support", "Facility Staff Support"
+        ),
+    }
+
+
+def find_latest_record_by_doc_type(doc_type, state_name, survey_year):
+    documents = execute_paged_select(
+        "documents",
+        lambda query: query.eq("doc_type", doc_type)
+        .eq("status", "uploaded")
+        .order("created_at", desc=True),
+    )
+    for document in documents:
+        rows = fetch_document_rows(document["id"])
+        matching_rows = [
+            row
+            for row in rows
+            if str(get_record_value(row, "state", "State") or "").strip().lower()
+            == state_name.strip().lower()
+            and str(get_record_value(row, "survey_year", "Survey Year") or "").strip()
+            == str(survey_year).strip()
+        ]
+        if matching_rows:
+            return matching_rows[0], document
+    return None, None
+
+
+def find_latest_planning_record(state_name, survey_year):
+    return find_latest_record_by_doc_type("planning", state_name, survey_year)
+
+
+def find_latest_facility_record(state_name, survey_year):
+    return find_latest_record_by_doc_type("facility", state_name, survey_year)
+
+
+def find_latest_benefit_cost_record(state_name, survey_year):
+    return find_latest_record_by_doc_type("benefit_cost", state_name, survey_year)
+
+
+@app.route("/api/planning/score", methods=["GET", "POST"])
+def get_planning_score():
+    try:
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            answers = payload.get("answers", {}) if isinstance(payload, dict) else {}
+            result = compute_planning_score(answers if isinstance(answers, dict) else {})
+            result["source"] = "Provided Answers"
+            return jsonify(result)
+
+        state_name = str(request.args.get("state", "")).strip()
+        survey_year = str(request.args.get("year", "")).strip()
+        if not state_name or not survey_year:
+            return jsonify({"error": "Both state and year are required."}), 400
+
+        planning_record, document = find_latest_planning_record(state_name, survey_year)
+        if planning_record:
+            answers = planning_record_to_answers(planning_record)
+            result = compute_planning_score(answers)
+            result["source"] = "Calculated from Upload"
+            result["state"] = state_name
+            result["survey_year"] = survey_year
+            result["dataset_version"] = get_record_value(planning_record, "dataset_version", "Dataset Version")
+            result["evidence_level"] = get_record_value(planning_record, "evidence_level", "Evidence Level")
+            result["source_notes"] = get_record_value(planning_record, "source_notes", "Source Notes")
+            result["document_id"] = document.get("id") if document else None
+            return jsonify(result)
+
+        submission, answers = fetch_latest_survey_update(
+            "project_planning", state_name, survey_year
+        )
+        if answers:
+            result = compute_planning_score(answers)
+            result["source"] = "Calculated from Survey-Based Updates"
+            result["state"] = state_name
+            result["survey_year"] = survey_year
+            result["submission_id"] = submission.get("id") if submission else None
+            return jsonify(result)
+
+        result = compute_planning_score({})
+        result["source"] = "No Value Available"
+        result["state"] = state_name
+        result["survey_year"] = survey_year
+        return jsonify(result)
+    except Exception as exc:
+        return jsonify({"error": f"Could not calculate planning score: {str(exc)}"}), 500
+
+
+@app.route("/api/facility/score", methods=["GET", "POST"])
+def get_facility_score():
+    try:
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            answers = payload.get("answers", {}) if isinstance(payload, dict) else {}
+            result = compute_facility_capacity_score(answers if isinstance(answers, dict) else {})
+            result["source"] = "Provided Answers"
+            return jsonify(result)
+
+        state_name = str(request.args.get("state", "")).strip()
+        survey_year = str(request.args.get("year", "")).strip()
+        if not state_name or not survey_year:
+            return jsonify({"error": "Both state and year are required."}), 400
+
+        facility_record, document = find_latest_facility_record(state_name, survey_year)
+        if facility_record:
+            answers = facility_record_to_answers(facility_record)
+            result = compute_facility_capacity_score(answers)
+            result["source"] = "Calculated from Upload"
+            result["state"] = state_name
+            result["survey_year"] = survey_year
+            result["dataset_version"] = get_record_value(facility_record, "dataset_version", "Dataset Version")
+            result["evidence_level"] = get_record_value(facility_record, "evidence_level", "Evidence Level")
+            result["source_notes"] = get_record_value(facility_record, "source_notes", "Source Notes")
+            result["document_id"] = document.get("id") if document else None
+            return jsonify(result)
+
+        submission, answers = fetch_latest_survey_update("facility", state_name, survey_year)
+        if answers:
+            result = compute_facility_capacity_score(answers)
+            result["source"] = "Calculated from Survey-Based Updates"
+            result["state"] = state_name
+            result["survey_year"] = survey_year
+            result["submission_id"] = submission.get("id") if submission else None
+            return jsonify(result)
+
+        result = compute_facility_capacity_score({})
+        result["source"] = "No Value Available"
+        result["state"] = state_name
+        result["survey_year"] = survey_year
+        return jsonify(result)
+    except Exception as exc:
+        return jsonify({"error": f"Could not calculate facility score: {str(exc)}"}), 500
 
 
 @app.route("/api/expert-review/current-values", methods=["GET"])
@@ -777,6 +1262,7 @@ def get_expert_review_current_values():
 
         submission, answers = fetch_latest_survey_update(domain_key, state_name, review_year)
         survey_values = survey_answer_values(domain_key, answers)
+        survey_values = add_review_scores(domain_key, survey_values, answers)
         items = apply_current_values(items, survey_values)
 
         return jsonify(
