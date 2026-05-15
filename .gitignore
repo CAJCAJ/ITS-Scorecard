@@ -22,6 +22,9 @@ venv/
 # Build output
 build/
 .codex-logs/
+backend_run*.log
+frontend_run*.log
+scorecard_backend/supabase_keepalive*.log
 
 # Vercel
 .vercel/
