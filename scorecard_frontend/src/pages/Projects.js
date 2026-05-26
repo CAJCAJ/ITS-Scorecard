@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { apiUrl } from "../services/api";
+import { getSessionState } from "../utils/auth";
 
 const Projects = () => {
   const [states, setStates] = useState([]);
@@ -9,9 +10,8 @@ const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    axios.get(apiUrl("/states"))
-      .then(res => setStates(res.data.states || []))
-      .catch(console.error);
+    const scopedState = getSessionState();
+    setStates(scopedState ? [scopedState] : []);
   }, []);
 
   const projects = [

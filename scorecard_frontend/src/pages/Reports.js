@@ -15,6 +15,7 @@ import {
 
 import DashboardCard from "../components/DashboardCard";
 import { apiUrl } from "../services/api";
+import { getSessionState } from "../utils/auth";
 
 ChartJS.register(
   CategoryScale,
@@ -71,7 +72,7 @@ const chartOptions = {
 
 export default function Reports() {
   const [states, setStates] = useState([]);
-  const [selectedState, setSelectedState] = useState("");
+  const [selectedState, setSelectedState] = useState(() => getSessionState() || "");
   const [analysis, setAnalysis] = useState(null);
   const [loadingStates, setLoadingStates] = useState(true);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
@@ -83,12 +84,12 @@ export default function Reports() {
     async function loadStates() {
       setLoadingStates(true);
       try {
-        const response = await axios.get(apiUrl("/legislation/states"));
         if (cancelled) return;
-        const nextStates = response.data.states || [];
+        const scopedState = getSessionState();
+        const nextStates = scopedState ? [scopedState] : [];
         setStates(nextStates);
         if (nextStates.length > 0) {
-          setSelectedState((current) => current || nextStates[0]);
+          setSelectedState(nextStates[0]);
         }
       } catch (err) {
         if (cancelled) return;
@@ -185,7 +186,7 @@ export default function Reports() {
       <div className="filters-container">
         <select
           value={selectedState}
-          onChange={(event) => setSelectedState(event.target.value)}
+          disabled
           style={{
             minWidth: "240px",
             padding: "14px 18px",
@@ -195,7 +196,7 @@ export default function Reports() {
           }}
         >
           <option value="">
-            {loadingStates ? "Loading states..." : "Select a State"}
+            {loadingStates ? "Loading state..." : "Select a State"}
           </option>
           {states.map((state) => (
             <option key={state} value={state}>

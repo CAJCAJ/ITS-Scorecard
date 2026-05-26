@@ -2,13 +2,17 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { apiUrl } from "../services/api";
+import { getSessionState } from "../utils/auth";
 
 const StateComparisonChart = () => {
   const [stateData, setStateData] = useState([]);
 
   useEffect(() => {
     axios.get(apiUrl("/state-summary"))
-      .then(res => setStateData(res.data))
+      .then(res => {
+        const scopedState = getSessionState();
+        setStateData((res.data || []).filter((item) => item.state === scopedState));
+      })
       .catch(err => console.error("Error fetching state summary", err));
   }, []);
 

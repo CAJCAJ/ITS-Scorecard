@@ -58,7 +58,111 @@ body {
   margin-left: 0 !important;
   width: 100% !important;
   padding: 0 !important;
-  overflow: hidden;
+  overflow: auto;
+}
+
+.map-entry-page {
+  min-height: 100vh;
+  padding: 28px;
+  box-sizing: border-box;
+  background: #f4f7fb;
+}
+
+.map-entry-header {
+  max-width: 1160px;
+  margin: 0 auto 18px;
+}
+
+.map-entry-header h1 {
+  margin: 0 0 6px;
+  color: #1f2d3d;
+  font-size: 2rem;
+}
+
+.map-entry-header p {
+  margin: 0;
+  color: #607185;
+  font-size: 1rem;
+}
+
+.map-entry-page .heatmap-card {
+  max-width: 1160px;
+  margin: 0 auto;
+}
+
+.state-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.64);
+}
+
+.state-login-modal {
+  position: relative;
+  width: min(440px, 94vw);
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.34);
+  box-sizing: border-box;
+}
+
+.state-login-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.state-login-kicker {
+  color: #0057ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.state-login-modal h2 {
+  margin: -8px 0 4px;
+  color: #1f2d3d;
+}
+
+.state-login-modal label {
+  display: grid;
+  gap: 7px;
+  color: #1f2d3d;
+  font-weight: 700;
+}
+
+.state-login-modal input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.state-login-error {
+  padding: 12px 14px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #b42318;
+  line-height: 1.45;
+}
+
+.state-login-submit {
+  width: 100%;
 }
 
 /* =========================

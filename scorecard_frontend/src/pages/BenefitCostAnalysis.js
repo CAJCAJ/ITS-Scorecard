@@ -4,9 +4,9 @@ import DashboardCard from "../components/DashboardCard";
 import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers } from "../utils/surveyUpdates";
+import { getSessionState } from "../utils/auth";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
-const STATE_OPTIONS = ["Texas", "New Jersey"];
 
 function formatMoney(value) {
   return `$${Number(value || 0).toLocaleString(undefined, {
@@ -28,7 +28,7 @@ export default function BenefitCostAnalysis() {
   const [allAnswers, setAllAnswers] = useState(() => loadSurveyAnswers());
   const [result, setResult] = useState(null);
   const [selectedYear, setSelectedYear] = useState("2023");
-  const [selectedState, setSelectedState] = useState("Texas");
+  const [selectedState] = useState(() => getSessionState() || "Texas");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -145,7 +145,7 @@ export default function BenefitCostAnalysis() {
             <div style={{ fontWeight: 700, marginBottom: "8px" }}>State</div>
             <select
               value={selectedState}
-              onChange={(event) => setSelectedState(event.target.value)}
+              disabled
               style={{
                 padding: "12px 14px",
                 borderRadius: "8px",
@@ -154,11 +154,7 @@ export default function BenefitCostAnalysis() {
                 background: "#fff",
               }}
             >
-              {STATE_OPTIONS.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
+              <option value={selectedState}>{selectedState}</option>
             </select>
           </label>
           <button type="button" className="btn btn-outline" onClick={handleRefresh}>

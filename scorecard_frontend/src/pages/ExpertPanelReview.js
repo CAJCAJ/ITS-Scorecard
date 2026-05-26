@@ -9,9 +9,9 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { apiUrl } from "../services/api";
+import { getSessionState } from "../utils/auth";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
-const STATE_OPTIONS = ["Texas", "New Jersey"];
 const JUDGMENT_OPTIONS = [
   "Reasonable",
   "Too High",
@@ -27,7 +27,7 @@ function emptyForm() {
     id: "",
     reviewer_name: "",
     review_year: "2023",
-    state: "Texas",
+    state: getSessionState() || "Texas",
     domain_key: "",
     dataset_version: "",
     overall_comment: "",
@@ -324,14 +324,10 @@ export default function ExpertPanelReview() {
             <div style={{ fontWeight: 700, marginBottom: "8px" }}>State</div>
             <select
               value={form.state}
-              onChange={(event) => updateForm("state", event.target.value)}
+              disabled
               style={fieldStyle()}
             >
-              {STATE_OPTIONS.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
+              <option value={form.state}>{form.state}</option>
             </select>
           </label>
 

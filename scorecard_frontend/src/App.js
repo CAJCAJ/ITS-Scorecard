@@ -11,7 +11,6 @@ import Sidebar from "./components/Sidebar";
 import Footer from "./components/Footer";
 
 import Login from "./pages/Login";
-import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -62,18 +61,23 @@ function AppLayout({ collapsed, onToggleSidebar }) {
         <Routes>
           <Route
             path="/login"
-            element={isAuthed() ? <Navigate to="/home" replace /> : <Login />}
+            element={isAuthed() ? <Navigate to="/dashboard" replace /> : <Login />}
           />
 
-          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route
+            path="/"
+            element={
+              isAuthed() ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
 
           <Route
             path="/home"
-            element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/dashboard" replace />}
           />
 
           <Route

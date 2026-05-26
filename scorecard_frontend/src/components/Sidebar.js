@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   FaBars,
-  FaHome,
   FaTachometerAlt,
   FaListAlt,
   FaProjectDiagram,
@@ -103,13 +102,6 @@ export default function Sidebar({ collapsed, onToggle }) {
       </div>
 
       <ul className="sidebar-menu">
-        <li>
-          <NavLink to="/home" className={getActiveClass}>
-            <FaHome className="icon" />
-            <span className="link-text">Home</span>
-          </NavLink>
-        </li>
-
         <li>
           <NavLink to="/dashboard" className={getActiveClass}>
             <FaTachometerAlt className="icon" />

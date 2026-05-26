@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fa';
 import axios from 'axios';
 import { apiUrl } from '../services/api';
+import { getSessionState } from '../utils/auth';
 
 const DOC_TYPES = [
   {
@@ -48,6 +49,17 @@ const DOC_TYPES = [
   },
 ];
 
+const DATASET_STATE_MAP = {
+  tx_state_data: 'Texas',
+  nj_state_data: 'New Jersey',
+};
+
+function documentMatchesSessionState(doc, sessionState) {
+  if (!sessionState) return true;
+  const documentState = doc.state || DATASET_STATE_MAP[doc.dataset_key];
+  return !documentState || documentState === sessionState;
+}
+
 export default function UploadUpdate() {
   const [documents, setDocuments] = useState([]);
   const [search, setSearch] = useState('');
@@ -58,6 +70,7 @@ export default function UploadUpdate() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const fileInputRefs = useRef({});
+  const sessionState = getSessionState();
 
   const showError = (msg) => {
     setSuccessMsg('');
@@ -130,6 +143,9 @@ export default function UploadUpdate() {
   };
 
   const filteredDocs = documents.filter(d => {
+    if (!documentMatchesSessionState(d, sessionState)) {
+      return false;
+    }
     const matchesSearch =
       search === '' ||
       d.table_name?.toLowerCase().includes(search.toLowerCase()) ||

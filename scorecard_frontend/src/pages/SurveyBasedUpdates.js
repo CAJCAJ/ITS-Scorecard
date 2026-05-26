@@ -8,9 +8,9 @@ import {
 } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers, saveSurveyAnswers } from "../utils/surveyUpdates";
+import { getSessionState } from "../utils/auth";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
-const STATE_OPTIONS = ["Texas", "New Jersey"];
 
 function commonSelectStyle() {
   return {
@@ -117,7 +117,7 @@ export default function SurveyBasedUpdates() {
   const [selectedTopicKey, setSelectedTopicKey] = useState("");
   const [answersByTopic, setAnswersByTopic] = useState(() => loadSurveyAnswers());
   const [surveyYear, setSurveyYear] = useState("2023");
-  const [stateName, setStateName] = useState("Texas");
+  const [stateName] = useState(() => getSessionState() || "Texas");
   const [respondentName, setRespondentName] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
@@ -297,14 +297,10 @@ export default function SurveyBasedUpdates() {
             <div style={{ fontWeight: 700, marginBottom: "8px" }}>State</div>
             <select
               value={stateName}
-              onChange={(event) => setStateName(event.target.value)}
+              disabled
               style={commonSelectStyle()}
             >
-              {STATE_OPTIONS.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
+              <option value={stateName}>{stateName}</option>
             </select>
           </label>
 

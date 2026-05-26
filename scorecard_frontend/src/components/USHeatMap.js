@@ -61,7 +61,12 @@ function getTextColor(hex) {
 
 // ─── Component ────────────────────────────────────────────────
 
-export default function USHeatMap() {
+export default function USHeatMap({
+    onStateClick,
+    showHoverModal = true,
+    title = "ITS Maturity Scorecard Heat Map",
+    subtitle = "",
+}) {
     const { setSelectedState } = useDashboard();
     const navigate = useNavigate();
     const hoverTimer = useRef();
@@ -93,8 +98,10 @@ export default function USHeatMap() {
     // hover → show modal after 1.5s
     const onMouseEnter = st => {
         hoverTimer.current = setTimeout(() => {
-            setSelectedState(st);
-            setModalState(st);
+            if (showHoverModal) {
+                setSelectedState(st);
+                setModalState(st);
+            }
         }, 1500);
     };
     const onMouseLeave = () => {
@@ -102,15 +109,23 @@ export default function USHeatMap() {
         setModalState(null);
     };
 
-    // click → navigate to dashboard
     const onClick = st => {
+        if (onStateClick) {
+            onStateClick(st);
+            return;
+        }
         setSelectedState(st);
         navigate("/dashboard");
     };
 
     return (
         <div className="heatmap-card">
-            <h2 style={{ marginBottom: 12 }}>ITS Maturity Scorecard Heat Map</h2>
+            {title ? <h2 style={{ marginBottom: subtitle ? 6 : 12 }}>{title}</h2> : null}
+            {subtitle ? (
+                <p style={{ marginTop: 0, marginBottom: 14, color: "#607185" }}>
+                    {subtitle}
+                </p>
+            ) : null}
 
             {/* Mode toggle */}
             <div style={{ textAlign: "right", marginBottom: 8 }}>
@@ -190,7 +205,7 @@ export default function USHeatMap() {
             </ComposableMap>
 
             {/* Hover summary modal */}
-            {modalState && (
+            {showHoverModal && modalState && (
                 <StateModal
                     stateName={modalState}
                     data={scorecards[modalState]}

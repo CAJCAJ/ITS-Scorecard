@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 import { apiUrl } from "../services/api";
+import { getSessionState } from "../utils/auth";
 
 const YEARS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
-const STATES = ["New Jersey", "Texas"];
 
 export default function DeploymentAnalysis() {
   const [selectedYear, setSelectedYear] = useState("2023");
-  const [selectedState, setSelectedState] = useState("New Jersey");
+  const [selectedState] = useState(() => getSessionState() || "New Jersey");
   const [items, setItems] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,7 +77,7 @@ export default function DeploymentAnalysis() {
 
         <select
           value={selectedState}
-          onChange={(event) => setSelectedState(event.target.value)}
+          disabled
           style={{
             minWidth: "220px",
             padding: "14px 18px",
@@ -86,11 +86,7 @@ export default function DeploymentAnalysis() {
             borderRadius: "10px",
           }}
         >
-          {STATES.map((state) => (
-            <option key={state} value={state}>
-              {state}
-            </option>
-          ))}
+          <option value={selectedState}>{selectedState}</option>
         </select>
       </div>
 

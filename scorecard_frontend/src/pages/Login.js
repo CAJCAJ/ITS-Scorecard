@@ -1,252 +1,104 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import USHeatMap from "../components/USHeatMap";
+import { isAuthed, login as authenticate } from "../utils/auth";
 
 export default function Login() {
-    const mapContainer = useRef(null);
-    const mapRef = useRef(null);
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [selectedState, setSelectedState] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-    const [activeTab, setActiveTab] = useState("login"); // "login" | "register"
-    const [stateName, setStateName] = useState("ITS Scorecard");
+  useEffect(() => {
+    if (isAuthed()) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
 
-    useEffect(() => {
-        mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+  const closeModal = () => {
+    setSelectedState("");
+    setUsername("");
+    setPassword("");
+    setError("");
+  };
 
-        if (!mapRef.current) {
-            mapRef.current = new mapboxgl.Map({
-                container: mapContainer.current,
-                style: "mapbox://styles/mapbox/light-v11",
-                center: [-98.5795, 39.8283],
-                zoom: 3.2,
-            });
-        }
+  const handleStateClick = (stateName) => {
+    setSelectedState(stateName);
+    setUsername("");
+    setPassword("");
+    setError("");
+  };
 
-        return () => {
-            if (mapRef.current) {
-                mapRef.current.remove();
-                mapRef.current = null;
-            }
-        };
-    }, []);
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const result = authenticate(username, password, selectedState);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    navigate("/dashboard", { replace: true });
+  };
 
-    const handleLogin = (e) => {
-        e.preventDefault();
+  return (
+    <div className="map-entry-page">
+      <div className="map-entry-header">
+        <h1>ITS Scorecard</h1>
+        <p>Select New Jersey or Texas on the map to sign in.</p>
+      </div>
 
-        // temp auth (until real auth is wired)
-        localStorage.setItem("ITS_AUTH", "1");
+      <USHeatMap
+        title=""
+        subtitle=""
+        showHoverModal={false}
+        onStateClick={handleStateClick}
+      />
 
-        // IMPORTANT: replace=true prevents "back" from returning to login
-        navigate("/home", { replace: true });
-    };
-
-    const handleRegister = (e) => {
-        e.preventDefault();
-
-        // for now, treat register as success too (you'll wire real register later)
-        localStorage.setItem("ITS_AUTH", "1");
-        navigate("/home", { replace: true });
-    };
-
-    return (
-        <div style={{ position: "relative", height: "100vh", width: "100%" }}>
-            {/* Map background */}
-            <div ref={mapContainer} style={{ position: "absolute", inset: 0 }} />
-
-            {/* Top banner */}
-            <div
-                style={{
-                    position: "absolute",
-                    top: 18,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: "rgba(20, 30, 40, 0.9)",
-                    color: "#fff",
-                    padding: "14px 22px",
-                    borderRadius: 14,
-                    boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
-                    textAlign: "center",
-                    zIndex: 5,
-                    minWidth: 260,
-                }}
+      {selectedState && (
+        <div className="state-login-overlay" role="dialog" aria-modal="true">
+          <form className="state-login-modal" onSubmit={handleSubmit}>
+            <button
+              type="button"
+              className="state-login-close"
+              aria-label="Close login"
+              onClick={closeModal}
             >
-                <div style={{ fontWeight: 800, fontSize: 22 }}>ITS Scorecard</div>
-                <div style={{ opacity: 0.9, marginTop: 2 }}>Please Select Your State</div>
-            </div>
+              x
+            </button>
 
-            {/* Center modal */}
-            <div
-                style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "grid",
-                    placeItems: "center",
-                    padding: 16,
-                    zIndex: 5,
-                }}
-            >
-                <div
-                    style={{
-                        width: "min(560px, 92vw)",
-                        background: "#fff",
-                        borderRadius: 14,
-                        boxShadow: "0 18px 50px rgba(0,0,0,0.25)",
-                        padding: 18,
-                        position: "relative",
-                        boxSizing: "border-box",
-                    }}
-                >
-                    {/* Close button (optional UI) */}
-                    <button
-                        type="button"
-                        aria-label="close"
-                        style={{
-                            position: "absolute",
-                            top: 10,
-                            right: 10,
-                            border: "none",
-                            background: "transparent",
-                            fontSize: 18,
-                            cursor: "pointer",
-                        }}
-                        onClick={() => { }}
-                    >
-                        x
-                    </button>
+            <div className="state-login-kicker">Selected State</div>
+            <h2>{selectedState}</h2>
 
-                    {/* State title */}
-                    <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>
-                        {stateName}
-                    </div>
+            <label>
+              <span>Username</span>
+              <input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                autoFocus
+                required
+              />
+            </label>
 
-                    {/* Tabs */}
-                    <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("login")}
-                            style={tabStyle(activeTab === "login")}
-                        >
-                            Login
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("register")}
-                            style={tabStyle(activeTab === "register")}
-                        >
-                            Register
-                        </button>
-                    </div>
+            <label>
+              <span>Password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </label>
 
-                    {/* Form */}
-                    {activeTab === "login" ? (
-                        <form onSubmit={handleLogin}>
-                            <label style={labelStyle}>Email</label>
-                            <input type="email" required style={inputStyle} />
+            {error ? <div className="state-login-error">{error}</div> : null}
 
-                            <label style={{ ...labelStyle, marginTop: 10 }}>Password</label>
-                            <input type="password" required style={inputStyle} />
-
-                            <button type="submit" style={primaryBtn}>
-                                Sign In
-                            </button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleRegister}>
-                            <label style={labelStyle}>Email</label>
-                            <input type="email" required style={inputStyle} />
-
-                            <label style={{ ...labelStyle, marginTop: 10 }}>Password</label>
-                            <input type="password" required style={inputStyle} />
-
-                            <label style={{ ...labelStyle, marginTop: 10 }}>Confirm Password</label>
-                            <input type="password" required style={inputStyle} />
-
-                            <button type="submit" style={primaryBtn}>
-                                Create Account
-                            </button>
-                        </form>
-                    )}
-
-                    {/* Snapshot card (placeholder like your screenshot) */}
-                    <div
-                        style={{
-                            marginTop: 18,
-                            borderRadius: 12,
-                            border: "1px solid #e7e7e7",
-                            padding: 14,
-                            background: "#fafafa",
-                        }}
-                    >
-                        <div style={{ fontWeight: 800, marginBottom: 8 }}>Scorecard Snapshot</div>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                            <div
-                                style={{
-                                    width: 40,
-                                    height: 40,
-                                    borderRadius: 10,
-                                    background: "#1f2a37",
-                                    color: "#fff",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    fontWeight: 800,
-                                }}
-                            >
-                                A
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 700 }}>Overall Rating</div>
-                                <div style={{ fontSize: 13, color: "#444", marginTop: 4 }}>
-                                    Superior transportation systems with innovative solutions and high
-                                    efficiency ratings across all sectors.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* OPTIONAL: state selection dropdown (until we wire map-click state selection) */}
-                    <div style={{ marginTop: 12, fontSize: 13, color: "#555" }}>
-                        State selection is currently mocked. Next step: make state click on the map set
-                        this modal's state.
-                    </div>
-                </div>
-            </div>
+            <button type="submit" className="btn btn-primary state-login-submit">
+              Sign In
+            </button>
+          </form>
         </div>
-    );
+      )}
+    </div>
+  );
 }
-
-const tabStyle = (active) => ({
-    border: "1px solid #d0d0d0",
-    background: active ? "#111827" : "#fff",
-    color: active ? "#fff" : "#111",
-    padding: "6px 10px",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontWeight: 700,
-    fontSize: 13,
-});
-
-const labelStyle = { fontWeight: 700, fontSize: 13, display: "block" };
-
-const inputStyle = {
-    width: "100%",
-    padding: "10px 12px",
-    marginTop: 6,
-    borderRadius: 10,
-    border: "1px solid #d9d9d9",
-    outline: "none",
-    boxSizing: "border-box",
-};
-
-const primaryBtn = {
-    width: "100%",
-    marginTop: 14,
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 800,
-    background: "#111827",
-    color: "#fff",
-    boxSizing: "border-box",
-};

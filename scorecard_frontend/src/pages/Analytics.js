@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Chart, registerables } from "chart.js";
 import { apiUrl } from "../services/api";
+import { getSessionState } from "../utils/auth";
 
 Chart.register(...registerables);
 
@@ -17,12 +18,18 @@ const Analytics = () => {
   useEffect(() => {
     axios
       .get(apiUrl("/state-summary"))
-      .then((res) => setStateSummary(res.data))
+      .then((res) => {
+        const scopedState = getSessionState();
+        setStateSummary((res.data || []).filter((item) => item.state === scopedState));
+      })
       .catch(console.error);
 
     axios
       .get(apiUrl("/state-scorecards"))
-      .then((res) => setScorecards(res.data))
+      .then((res) => {
+        const scopedState = getSessionState();
+        setScorecards(scopedState ? { [scopedState]: res.data?.[scopedState] } : {});
+      })
       .catch(console.error);
   }, []);
 
