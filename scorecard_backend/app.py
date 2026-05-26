@@ -29,7 +29,16 @@ from supabase_config import create_supabase_client
 from survey_scoring import compute_default_values_for_year, parse_survey_filename, parse_survey_workbook
 
 app = Flask(__name__)
-CORS(app)
+
+
+def parse_cors_origins():
+    raw_origins = os.getenv("CORS_ORIGINS", "").strip()
+    if not raw_origins:
+        return "*"
+    return [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
+
+CORS(app, resources={r"/api/*": {"origins": parse_cors_origins()}})
 
 supabase = create_supabase_client()
 
@@ -79,6 +88,11 @@ COLUMN_ALIASES = {
     "synopsis": "synopsis",
     "category": "category",
 }
+
+
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "ok"})
 
 
 def normalize_token(value):
@@ -1620,4 +1634,6 @@ def delete_document(doc_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    app.run(host="0.0.0.0", port=port, debug=debug)

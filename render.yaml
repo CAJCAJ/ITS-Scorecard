@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: its-scorecard-api
+    runtime: python
+    rootDir: scorecard_backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /api/health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: its-scorecard
+    runtime: static
+    rootDir: scorecard_frontend
+    buildCommand: npm ci --legacy-peer-deps && npm run build
+    staticPublishPath: build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        sync: false
+      - key: REACT_APP_MAPBOX_TOKEN
+        sync: false
