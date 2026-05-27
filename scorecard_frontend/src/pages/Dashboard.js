@@ -25,7 +25,8 @@ const DOMAIN_COLORS = {
   facility: "#10b981",
 };
 
-const REQUEST_TIMEOUT_MS = 12000;
+const REQUEST_TIMEOUT_MS = 30000;
+const REQUEST_RETRY_DELAY_MS = 800;
 
 function asNumber(value) {
   const numeric = Number(value);
@@ -47,6 +48,34 @@ function availableScores(items) {
   return items
     .map((item) => asNumber(item.score))
     .filter((value) => value !== null);
+}
+
+function isAbortError(error) {
+  return (
+    axios.isCancel?.(error) ||
+    error?.code === "ERR_CANCELED" ||
+    error?.name === "CanceledError"
+  );
+}
+
+function isTimeoutError(error) {
+  return error?.code === "ECONNABORTED" || /timeout/i.test(error?.message || "");
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestWithRetry(requestFactory) {
+  try {
+    return await requestFactory();
+  } catch (error) {
+    if (!isTimeoutError(error) || isAbortError(error)) {
+      throw error;
+    }
+    await wait(REQUEST_RETRY_DELAY_MS);
+    return requestFactory();
+  }
 }
 
 function buildDomainRows(results) {
@@ -124,65 +153,92 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState({});
+  const sessionState = getSessionState();
+  const stateName = sessionState || selectedState;
 
   useEffect(() => {
-    const scopedState = getSessionState();
-    if (scopedState && selectedState !== scopedState) {
-      setSelectedState(scopedState);
+    if (sessionState && selectedState !== sessionState) {
+      setSelectedState(sessionState);
     }
-  }, [selectedState, setSelectedState]);
+  }, [sessionState, selectedState, setSelectedState]);
 
   useEffect(() => {
-    const stateName = getSessionState() || selectedState;
     if (!stateName) return;
 
     let cancelled = false;
+    const controller = new AbortController();
 
     async function loadDashboard() {
       setLoading(true);
       setError("");
 
-      const requests = {
-        benefitCost: axios.get(apiUrl("/benefit-cost/score"), {
-          params: { state: stateName, year: selectedYear },
-          timeout: REQUEST_TIMEOUT_MS,
-        }),
-        deployment: axios.get(apiUrl("/deployment/default-values"), {
-          params: { state: stateName, year: selectedYear },
-          timeout: REQUEST_TIMEOUT_MS,
-        }),
-        legislation: axios.get(apiUrl("/legislation/analysis"), {
-          params: { state: stateName },
-          timeout: REQUEST_TIMEOUT_MS,
-        }),
-        planning: axios.get(apiUrl("/planning/score"), {
-          params: { state: stateName, year: selectedYear },
-          timeout: REQUEST_TIMEOUT_MS,
-        }),
-        facility: axios.get(apiUrl("/facility/score"), {
-          params: { state: stateName, year: selectedYear },
-          timeout: REQUEST_TIMEOUT_MS,
-        }),
-      };
+      const requests = [
+        {
+          key: "benefitCost",
+          run: () =>
+            axios.get(apiUrl("/benefit-cost/score"), {
+              params: { state: stateName, year: selectedYear },
+              timeout: REQUEST_TIMEOUT_MS,
+              signal: controller.signal,
+            }),
+        },
+        {
+          key: "deployment",
+          run: () =>
+            axios.get(apiUrl("/deployment/default-values"), {
+              params: { state: stateName, year: selectedYear },
+              timeout: REQUEST_TIMEOUT_MS,
+              signal: controller.signal,
+            }),
+        },
+        {
+          key: "legislation",
+          run: () =>
+            axios.get(apiUrl("/legislation/analysis"), {
+              params: { state: stateName },
+              timeout: REQUEST_TIMEOUT_MS,
+              signal: controller.signal,
+            }),
+        },
+        {
+          key: "planning",
+          run: () =>
+            axios.get(apiUrl("/planning/score"), {
+              params: { state: stateName, year: selectedYear },
+              timeout: REQUEST_TIMEOUT_MS,
+              signal: controller.signal,
+            }),
+        },
+        {
+          key: "facility",
+          run: () =>
+            axios.get(apiUrl("/facility/score"), {
+              params: { state: stateName, year: selectedYear },
+              timeout: REQUEST_TIMEOUT_MS,
+              signal: controller.signal,
+            }),
+        },
+      ];
 
-      const entries = await Promise.all(
-        Object.entries(requests).map(async ([key, request]) => {
-          try {
-            const response = await request;
-            return [key, response.data || {}];
-          } catch (requestError) {
-            return [
-              key,
-              {
-                error:
-                  requestError.response?.data?.error ||
-                  requestError.message ||
-                  "Could not load this domain.",
-              },
-            ];
-          }
-        })
-      );
+      const entries = [];
+      for (const request of requests) {
+        if (cancelled) return;
+        try {
+          const response = await requestWithRetry(request.run);
+          entries.push([request.key, response.data || {}]);
+        } catch (requestError) {
+          if (isAbortError(requestError)) return;
+          entries.push([
+            request.key,
+            {
+              error:
+                requestError.response?.data?.error ||
+                requestError.message ||
+                "Could not load this domain.",
+            },
+          ]);
+        }
+      }
 
       if (cancelled) return;
       setResults(Object.fromEntries(entries));
@@ -197,8 +253,9 @@ export default function Dashboard() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [selectedState, selectedYear]);
+  }, [stateName, selectedYear]);
 
   const domainRows = useMemo(() => buildDomainRows(results), [results]);
   const scores = availableScores(domainRows);
@@ -208,8 +265,6 @@ export default function Dashboard() {
   const strongestDomain = domainRows
     .filter((item) => asNumber(item.score) !== null)
     .sort((a, b) => Number(b.score) - Number(a.score))[0];
-
-  const stateName = getSessionState() || selectedState;
 
   return (
     <div className="dashboard-container" style={{ maxWidth: "1380px" }}>
@@ -301,14 +356,7 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
-          gap: "24px",
-          alignItems: "start",
-        }}
-      >
+      <div className="scorecard-dashboard-grid">
         <section className="card" style={{ padding: "26px", borderRadius: "8px" }}>
           <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>Scorecard Domains</h3>
           <div style={{ display: "grid", gap: "16px" }}>
@@ -350,8 +398,15 @@ export default function Dashboard() {
 
         <section className="card" style={{ padding: "26px", borderRadius: "8px" }}>
           <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>Source Summary</h3>
-          <div style={{ overflowX: "auto" }}>
-            <table className="preview-table" style={{ minWidth: "760px" }}>
+          <div className="dashboard-source-scroll">
+            <table className="preview-table dashboard-source-table">
+              <colgroup>
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "21%" }} />
+                <col style={{ width: "34%" }} />
+                <col style={{ width: "12%" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Domain</th>
@@ -370,7 +425,7 @@ export default function Dashboard() {
                       {results[domain.key]?.error || domain.source}
                     </td>
                     <td className="source-cell">{domain.detail}</td>
-                    <td>
+                    <td className="dashboard-action-cell">
                       <Link className="btn btn-outline btn-small" to={domain.route}>
                         Open
                       </Link>
