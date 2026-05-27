@@ -327,9 +327,12 @@ def analyze_legislation_records(records, through_year=None):
 
     total_bills = len(bill_rows)
     average_raw_score = sum(row["score"] for row in bill_rows) / total_bills if total_bills else 0
+    positive_support_points = sum(max(row["score"], 0) for row in bill_rows)
+    restrictive_count = score_counts[-1]
+    effective_support_points = max(0, positive_support_points - (2 * restrictive_count))
     unified_score = (
-        (average_raw_score ** 2) / (1 + average_raw_score ** 2)
-        if total_bills
+        effective_support_points / (effective_support_points + 35)
+        if effective_support_points > 0
         else 0
     )
 
@@ -337,6 +340,8 @@ def analyze_legislation_records(records, through_year=None):
         "totalBills": total_bills,
         "averageRawScore": average_raw_score,
         "unifiedScore": unified_score,
+        "positiveSupportPoints": positive_support_points,
+        "effectiveSupportPoints": effective_support_points,
         "throughYear": str(normalized_year) if normalized_year is not None else None,
         "isCumulative": normalized_year is not None,
         "sourceRecordCount": len(source_records),
