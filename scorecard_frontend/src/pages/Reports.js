@@ -70,9 +70,12 @@ const chartOptions = {
   },
 };
 
+const YEAR_OPTIONS = Array.from({ length: 25 }, (_, index) => String(2000 + index));
+
 export default function Reports() {
   const [states, setStates] = useState([]);
   const [selectedState, setSelectedState] = useState(() => getSessionState() || "");
+  const [selectedYear, setSelectedYear] = useState("2024");
   const [analysis, setAnalysis] = useState(null);
   const [loadingStates, setLoadingStates] = useState(true);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
@@ -115,7 +118,11 @@ export default function Reports() {
       setError("");
       try {
         const response = await axios.get(
-          apiUrl(`/legislation/analysis?state=${encodeURIComponent(selectedState)}`)
+          apiUrl(
+            `/legislation/analysis?state=${encodeURIComponent(
+              selectedState
+            )}&year=${encodeURIComponent(selectedYear)}`
+          )
         );
         if (cancelled) return;
         setAnalysis(response.data);
@@ -134,7 +141,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [selectedState]);
+  }, [selectedState, selectedYear]);
 
   const yearlyChartData = useMemo(
     () =>
@@ -204,6 +211,23 @@ export default function Reports() {
             </option>
           ))}
         </select>
+        <select
+          value={selectedYear}
+          onChange={(event) => setSelectedYear(event.target.value)}
+          style={{
+            minWidth: "140px",
+            padding: "14px 18px",
+            fontSize: "1.05rem",
+            fontWeight: 600,
+            borderRadius: "10px",
+          }}
+        >
+          {YEAR_OPTIONS.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -215,7 +239,10 @@ export default function Reports() {
       {selectedState && analysis && !loadingAnalysis && (
         <>
           <div className="metrics-grid">
-            <DashboardCard title="Total Bills" value={analysis.totalBills} />
+            <DashboardCard
+              title="Cumulative Bills"
+              value={analysis.totalBills}
+            />
             <DashboardCard
               title="Average Bill Score"
               value={analysis.averageRawScore.toFixed(2)}
@@ -270,7 +297,9 @@ export default function Reports() {
           </div>
 
           <div className="card" style={{ marginTop: "28px", padding: "24px" }}>
-            <h3 style={{ marginTop: 0 }}>Bill Scores for {selectedState}</h3>
+            <h3 style={{ marginTop: 0 }}>
+              Enacted Bill Scores for {selectedState} Through {selectedYear}
+            </h3>
             <div style={{ overflowX: "auto" }}>
               <table className="preview-table" style={{ minWidth: "1120px" }}>
                 <thead>

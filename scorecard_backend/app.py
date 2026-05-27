@@ -373,6 +373,7 @@ def get_data():
 @app.route("/api/legislation/analysis", methods=["GET"])
 def get_legislation_analysis():
     state = str(request.args.get("state", "")).strip()
+    analysis_year = str(request.args.get("year", "")).strip()
     if not state:
         return jsonify({"error": "State is required."}), 400
 
@@ -380,7 +381,7 @@ def get_legislation_analysis():
     if not records:
         return jsonify({"error": "Legislation data not found for the selected state."}), 404
 
-    result = analyze_legislation_records(records)
+    result = analyze_legislation_records(records, analysis_year or None)
     result["state"] = state
     return jsonify(result)
 
@@ -862,7 +863,7 @@ def get_uploaded_review_values(domain_key, state_name, survey_year):
         records = fetch_legislation_records(state_name)
         if not records:
             return {}
-        return legislation_upload_values(analyze_legislation_records(records))
+        return legislation_upload_values(analyze_legislation_records(records, survey_year))
 
     if domain_key == "project_planning":
         planning_record, _ = find_latest_planning_record(state_name, survey_year)

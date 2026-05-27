@@ -205,9 +205,33 @@ def _extract_year(date_value):
     return None
 
 
+def normalize_year(value):
+    try:
+        year = int(str(value or "").strip())
+    except ValueError:
+        return None
+    return year if 1900 <= year <= 2100 else None
+
+
 def _is_enacted(version):
     version_text = str(version or "").strip().lower()
     return any(term in version_text for term in ("enacted", "signed", "chaptered", "adopted"))
+
+
+def filter_cumulative_legislation_records(records, through_year):
+    normalized_year = normalize_year(through_year)
+    if normalized_year is None:
+        return list(records), None
+
+    filtered = []
+    for record in records:
+        bill_year = _extract_year(record.get("date"))
+        if bill_year is None or bill_year > normalized_year:
+            continue
+        if not _is_enacted(record.get("version")):
+            continue
+        filtered.append(record)
+    return filtered, normalized_year
 
 
 def categorize_legislation(record):
@@ -259,14 +283,19 @@ def score_legislation_support(record):
     return 0
 
 
-def analyze_legislation_records(records):
+def analyze_legislation_records(records, through_year=None):
+    source_records = list(records)
+    analysis_records, normalized_year = filter_cumulative_legislation_records(
+        source_records, through_year
+    )
+
     yearly_counts = {}
     enacted_counts = {"Enacted": 0, "Not Enacted": 0}
     topic_counts = {name: 0 for name in LEGISLATION_CATEGORY_ORDER}
     score_counts = {score: 0 for score in (-1, 0, 1, 2, 3)}
     bill_rows = []
 
-    for record in records:
+    for record in analysis_records:
         category = categorize_legislation(record)
         score = score_legislation_support(record)
         normalized_score = (score + 1) / 4
@@ -308,6 +337,10 @@ def analyze_legislation_records(records):
         "totalBills": total_bills,
         "averageRawScore": average_raw_score,
         "unifiedScore": unified_score,
+        "throughYear": str(normalized_year) if normalized_year is not None else None,
+        "isCumulative": normalized_year is not None,
+        "sourceRecordCount": len(source_records),
+        "excludedRecordCount": len(source_records) - len(analysis_records),
         "yearlyCounts": [
             {"year": str(year), "count": count}
             for year, count in sorted(yearly_counts.items())

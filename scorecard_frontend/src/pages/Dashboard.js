@@ -206,7 +206,7 @@ export default function Dashboard() {
           key: "legislation",
           run: () =>
             axios.get(apiUrl("/legislation/analysis"), {
-              params: { state: stateName },
+              params: { state: stateName, year: selectedYear },
               signal: controller.signal,
             }),
         },
@@ -283,7 +283,7 @@ export default function Dashboard() {
               signal: controller.signal,
             }),
             axios.get(apiUrl("/legislation/analysis"), {
-              params: { state: stateName },
+              params: { state: stateName, year },
               signal: controller.signal,
             }),
             axios.get(apiUrl("/planning/score"), {
