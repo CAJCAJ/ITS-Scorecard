@@ -25,9 +25,6 @@ const DOMAIN_COLORS = {
   facility: "#10b981",
 };
 
-const REQUEST_TIMEOUT_MS = 30000;
-const REQUEST_RETRY_DELAY_MS = 800;
-
 function asNumber(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
@@ -56,26 +53,6 @@ function isAbortError(error) {
     error?.code === "ERR_CANCELED" ||
     error?.name === "CanceledError"
   );
-}
-
-function isTimeoutError(error) {
-  return error?.code === "ECONNABORTED" || /timeout/i.test(error?.message || "");
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function requestWithRetry(requestFactory) {
-  try {
-    return await requestFactory();
-  } catch (error) {
-    if (!isTimeoutError(error) || isAbortError(error)) {
-      throw error;
-    }
-    await wait(REQUEST_RETRY_DELAY_MS);
-    return requestFactory();
-  }
 }
 
 function buildDomainRows(results) {
@@ -178,7 +155,6 @@ export default function Dashboard() {
           run: () =>
             axios.get(apiUrl("/benefit-cost/score"), {
               params: { state: stateName, year: selectedYear },
-              timeout: REQUEST_TIMEOUT_MS,
               signal: controller.signal,
             }),
         },
@@ -187,7 +163,6 @@ export default function Dashboard() {
           run: () =>
             axios.get(apiUrl("/deployment/default-values"), {
               params: { state: stateName, year: selectedYear },
-              timeout: REQUEST_TIMEOUT_MS,
               signal: controller.signal,
             }),
         },
@@ -196,7 +171,6 @@ export default function Dashboard() {
           run: () =>
             axios.get(apiUrl("/legislation/analysis"), {
               params: { state: stateName },
-              timeout: REQUEST_TIMEOUT_MS,
               signal: controller.signal,
             }),
         },
@@ -205,7 +179,6 @@ export default function Dashboard() {
           run: () =>
             axios.get(apiUrl("/planning/score"), {
               params: { state: stateName, year: selectedYear },
-              timeout: REQUEST_TIMEOUT_MS,
               signal: controller.signal,
             }),
         },
@@ -214,7 +187,6 @@ export default function Dashboard() {
           run: () =>
             axios.get(apiUrl("/facility/score"), {
               params: { state: stateName, year: selectedYear },
-              timeout: REQUEST_TIMEOUT_MS,
               signal: controller.signal,
             }),
         },
@@ -224,19 +196,11 @@ export default function Dashboard() {
       for (const request of requests) {
         if (cancelled) return;
         try {
-          const response = await requestWithRetry(request.run);
+          const response = await request.run();
           entries.push([request.key, response.data || {}]);
         } catch (requestError) {
           if (isAbortError(requestError)) return;
-          entries.push([
-            request.key,
-            {
-              error:
-                requestError.response?.data?.error ||
-                requestError.message ||
-                "Could not load this domain.",
-            },
-          ]);
+          throw requestError;
         }
       }
 
