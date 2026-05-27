@@ -603,14 +603,17 @@ def aggregate_domain_scores(item_df: pd.DataFrame) -> pd.DataFrame:
     for keys, group in item_df.groupby(group_cols, dropna=False):
         included = group[group["included_in_domain_total"] == True].copy()
         observed_domain_score = None
+        has_domain_coverage = False
         if not included.empty:
             observed_domain_score = float(included["unified_item_score"].astype(float).mean())
+            has_domain_coverage = bool((included["unified_item_score"].astype(float) > 0).any())
 
         row = {column: value for column, value in zip(group_cols, keys)}
         row.update(
             {
                 "weight_priority": collapse_spaces(group["weight_priority"].iloc[0]) if "weight_priority" in group else "",
                 "observed_domain_score": observed_domain_score,
+                "has_domain_coverage": has_domain_coverage,
                 "included_item_count": int(len(included)),
             }
         )
@@ -633,11 +636,21 @@ def build_default_seed_table(domain_df: pd.DataFrame) -> pd.DataFrame:
                 & year_df["observed_domain_score"].notna()
             ].copy()
             if not subset.empty:
-                default_value = float(subset["observed_domain_score"].astype(float).median())
-                criterion = "median_observed_domain_score_same_year"
+                answered_agency_count = int(subset["agency_key"].nunique())
+                covered_agency_count = int(
+                    subset[subset["has_domain_coverage"] == True]["agency_key"].nunique()
+                )
+                default_value = (
+                    covered_agency_count / answered_agency_count
+                    if answered_agency_count
+                    else 0.0
+                )
+                criterion = "agency_presence_rate_same_year"
                 is_policy_fallback = False
             else:
                 default_value = 0.0
+                answered_agency_count = 0
+                covered_agency_count = 0
                 criterion = "policy_fallback_zero_no_scored_agencies"
                 is_policy_fallback = True
 
@@ -647,7 +660,8 @@ def build_default_seed_table(domain_df: pd.DataFrame) -> pd.DataFrame:
                     "domain_name": domain_name,
                     "default_value": round(default_value, 6),
                     "criterion": criterion,
-                    "scored_agency_count": int(subset["agency_key"].nunique()),
+                    "scored_agency_count": answered_agency_count,
+                    "covered_agency_count": covered_agency_count,
                     "is_policy_fallback": is_policy_fallback,
                 }
             )
@@ -793,6 +807,7 @@ def compute_default_values_for_year(
                 "default_value": float(row["default_value"]),
                 "criterion": row["criterion"],
                 "scored_agency_count": int(row["scored_agency_count"]),
+                "covered_agency_count": int(row.get("covered_agency_count", 0)),
                 "is_policy_fallback": bool(row["is_policy_fallback"]),
             }
         )

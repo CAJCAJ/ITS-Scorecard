@@ -114,13 +114,13 @@ export default function DeploymentAnalysis() {
                 <colgroup>
                   <col style={{ width: "480px" }} />
                   <col style={{ width: "150px" }} />
-                  <col style={{ width: "130px" }} />
+                  <col style={{ width: "170px" }} />
                 </colgroup>
                 <thead>
                   <tr>
                     <th>Category</th>
                     <th>Default Value</th>
-                    <th>Scored Agencies</th>
+                    <th>Covered / Answered Agencies</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -130,7 +130,10 @@ export default function DeploymentAnalysis() {
                         {item.domain_name}
                       </td>
                       <td>{Number(item.default_value).toFixed(3)}</td>
-                      <td>{item.scored_agency_count}</td>
+                      <td>
+                        {Number(item.covered_agency_count || 0)} /{" "}
+                        {Number(item.scored_agency_count || 0)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

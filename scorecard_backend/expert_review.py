@@ -273,8 +273,10 @@ def deployment_upload_values(default_value_items):
         subaspect_key = DOMAIN_NAME_TO_SUBASPECT_KEY.get(item.get("domain_name"))
         if not subaspect_key:
             continue
+        covered_count = item.get("covered_agency_count", 0)
+        answered_count = item.get("scored_agency_count", 0)
         values[subaspect_key] = {
-            "current_value": f"{item.get('scored_agency_count', 0)} scored agencies",
+            "current_value": f"{covered_count} of {answered_count} agencies with deployment evidence",
             "unified_score": format_number(item.get("default_value")),
             "source_basis": "Calculated from Upload",
         }
