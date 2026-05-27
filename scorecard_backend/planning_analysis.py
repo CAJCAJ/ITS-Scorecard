@@ -5,8 +5,13 @@ from survey_score_utils import count_selected, parse_first_number, parse_positiv
 
 
 PLANNING_QUESTIONS = QUESTION_IDS[TOPIC_KEYS["project_planning"]]
-PLANNING_FUNDING_THRESHOLD = 5_000_000
-PLANNING_GROWTH_BETA = 0.35
+PLANNING_MAX_SCORE = 0.68
+
+
+def bounded_growth(value, scale):
+    if value <= 0:
+        return 0.0
+    return 1 - math.exp(-value / scale)
 
 
 def compute_planning_score(answers):
@@ -19,68 +24,64 @@ def compute_planning_score(answers):
     award_programs = count_selected(answers.get(PLANNING_QUESTIONS["award_programs"]))
     planning_sources = count_selected(answers.get(PLANNING_QUESTIONS["planning_sources"]))
 
-    award_score = 0.0
-    if award_count > 0:
-        award_score = 0.8
-        if award_funding > PLANNING_FUNDING_THRESHOLD:
-            award_score = 0.85 + 0.15 * (
-                1
-                - math.exp(
-                    -(award_funding - PLANNING_FUNDING_THRESHOLD)
-                    / PLANNING_FUNDING_THRESHOLD
-                )
-            )
+    award_program_score = min(award_programs / 3.0, 1.0)
+    planning_source_score = min(planning_sources / 5.0, 1.0)
 
-    planning_score = 0.0
-    if planned_project_count > 0 or corridor_miles > 0:
-        if planned_project_count <= 5 and corridor_miles <= 10:
-            planning_score = 0.5
-        else:
-            planning_magnitude = max(0.0, planned_project_count - 5) + max(
-                0.0, corridor_miles - 10
-            ) / 10
-            planning_score = 0.5 + 0.5 * (
-                1 - math.exp(-PLANNING_GROWTH_BETA * planning_magnitude)
-            )
+    award_score = min(
+        PLANNING_MAX_SCORE,
+        (0.45 * bounded_growth(award_count, 1.5))
+        + (0.22 * bounded_growth(award_funding, 20_000_000))
+        + (0.08 * award_program_score),
+    )
 
-    unified_score = 0.9 * award_score + 0.1 * planning_score
+    planning_score = min(
+        PLANNING_MAX_SCORE,
+        (0.36 * bounded_growth(planned_project_count, 6.0))
+        + (0.27 * bounded_growth(corridor_miles, 50.0))
+        + (0.12 * planning_source_score),
+    )
+
+    unified_score = min(
+        PLANNING_MAX_SCORE,
+        (0.55 * award_score) + (0.45 * planning_score),
+    )
 
     breakdown = [
         {
             "label": "Federally Recognized Grants",
             "value": award_count,
             "weighted_value": award_score,
-            "note": "Baseline award score is triggered once at least one qualifying ITS award is reported.",
+            "note": "Grant count contributes on a capped maturity curve rather than creating an immediate high score.",
         },
         {
             "label": "Award Funding",
             "value": award_funding,
             "weighted_value": award_score,
-            "note": "Funding increases the award score after a significant funding threshold is exceeded.",
+            "note": "Funding contributes gradually and is capped to keep default planning scores conservative.",
         },
         {
             "label": "Planned ITS Projects",
             "value": planned_project_count,
             "weighted_value": planning_score,
-            "note": "Project count contributes to the planning scale component once planned ITS work is documented.",
+            "note": "Project count contributes gradually to the planning maturity component.",
         },
         {
             "label": "Planned Corridor Miles",
             "value": corridor_miles,
             "weighted_value": planning_score,
-            "note": "Corridor mileage contributes to the planning scale component for broader planned deployment coverage.",
+            "note": "Corridor mileage contributes gradually for broader planned deployment coverage.",
         },
         {
             "label": "Award Programs Listed",
             "value": award_programs,
-            "weighted_value": 0.0,
-            "note": "Tracked as supporting input only and not directly scored in the current model.",
+            "weighted_value": 0.08 * award_program_score,
+            "note": "Program diversity provides a small supporting contribution to award maturity.",
         },
         {
             "label": "Planning Sources Listed",
             "value": planning_sources,
-            "weighted_value": 0.0,
-            "note": "Tracked as supporting input only and not directly scored in the current model.",
+            "weighted_value": 0.12 * planning_source_score,
+            "note": "Planning source diversity provides a small supporting contribution to planning maturity.",
         },
     ]
 
