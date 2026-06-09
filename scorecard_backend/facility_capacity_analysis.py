@@ -5,8 +5,9 @@ from survey_score_utils import parse_first_number, parse_positive_number
 
 
 FACILITY_QUESTIONS = QUESTION_IDS[TOPIC_KEYS["facility"]]
-FACILITY_MAX_SCORE = 0.68
-FACILITY_CAPACITY_SCALE = 15.0
+FACILITY_MAX_SCORE = 1.0
+FACILITY_CAPACITY_SCALE = 7.5
+FACILITY_CURVE_SHAPE = 1.5
 
 
 def map_presence_score(value):
@@ -93,7 +94,13 @@ def compute_facility_capacity_score(answers):
     aggregate_capacity = sum(item["weighted_value"] for item in breakdown)
     has_input = any(item["weighted_value"] > 0 for item in breakdown)
     unified_score = (
-        FACILITY_MAX_SCORE * (1 - math.exp(-aggregate_capacity / FACILITY_CAPACITY_SCALE))
+        min(
+            FACILITY_MAX_SCORE,
+            1
+            - math.exp(
+                -((aggregate_capacity / FACILITY_CAPACITY_SCALE) ** FACILITY_CURVE_SHAPE)
+            ),
+        )
         if has_input
         else None
     )
