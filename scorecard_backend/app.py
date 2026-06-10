@@ -1,4 +1,6 @@
+import csv
 import io
+import json
 import math
 import os
 import uuid
@@ -41,6 +43,9 @@ def parse_cors_origins():
 CORS(app, resources={r"/api/*": {"origins": parse_cors_origins()}})
 
 supabase = create_supabase_client()
+PRE_SURVEY_SCHEMA_PATH = os.path.join(
+    os.path.dirname(__file__), "data", "pre_survey_2023_am_state_schema.json"
+)
 
 SURVEY_SCORE_COMPUTERS = {
     "benefit_cost": compute_benefit_cost_score,
@@ -696,6 +701,100 @@ def normalize_answer_for_storage(value):
         "answer_number": number_value,
         "answer_json": None,
     }
+
+
+def load_pre_survey_schema():
+    with open(PRE_SURVEY_SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
+        return json.load(schema_file)
+
+
+def safe_csv_filename_part(value):
+    cleaned = "".join(ch if ch.isalnum() else "_" for ch in str(value or "").strip())
+    cleaned = "_".join(part for part in cleaned.split("_") if part)
+    return cleaned or "Agency"
+
+
+def build_pre_survey_csv(schema, survey_year, agency_name, state_name, answers):
+    columns = ["SurveyYear", "AgencyName", "State", *schema.get("variables", [])]
+    row = {
+        "SurveyYear": survey_year,
+        "AgencyName": agency_name,
+        "State": state_name,
+    }
+    for variable in schema.get("variables", []):
+        value = answers.get(variable, "")
+        if isinstance(value, (list, dict)):
+            row[variable] = json.dumps(value, ensure_ascii=False)
+        else:
+            row[variable] = "" if value is None else str(value)
+
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=columns, lineterminator="\n")
+    writer.writeheader()
+    writer.writerow(row)
+    return buffer.getvalue(), len(columns)
+
+
+@app.route("/api/pre-survey/schema", methods=["GET"])
+def get_pre_survey_schema():
+    try:
+        return jsonify(load_pre_survey_schema())
+    except Exception as exc:
+        return jsonify({"error": f"Could not load pre-survey schema: {str(exc)}"}), 500
+
+
+@app.route("/api/pre-survey/submissions", methods=["POST"])
+def save_pre_survey_submission():
+    try:
+        payload = request.get_json(silent=True) or {}
+        survey_year = str(payload.get("survey_year") or "").strip()
+        agency_name = str(payload.get("agency_name") or "").strip()
+        state_name = str(payload.get("state") or "").strip()
+        answers = payload.get("answers", {})
+
+        schema = load_pre_survey_schema()
+        if survey_year not in set(schema.get("yearOptions", [])):
+            return jsonify({"error": "Survey year must be 2024 or 2025."}), 400
+        if not agency_name:
+            return jsonify({"error": "Agency name is required."}), 400
+        if not state_name:
+            return jsonify({"error": "State is required from the current login session."}), 400
+        if not isinstance(answers, dict):
+            return jsonify({"error": "Answers must be an object keyed by survey variable."}), 400
+
+        csv_content, column_count = build_pre_survey_csv(
+            schema, survey_year, agency_name, state_name, answers
+        )
+        csv_filename = f"{survey_year}_{safe_csv_filename_part(agency_name)}_Pre_Survey.csv"
+        now = datetime.now(timezone.utc).isoformat()
+        submission_row = {
+            "id": str(uuid.uuid4()),
+            "csv_filename": csv_filename,
+            "state": state_name,
+            "survey_year": survey_year,
+            "agency_name": agency_name,
+            "survey_type": schema.get("surveyType", "AM"),
+            "agency_scope": schema.get("agencyScope", "State"),
+            "source_workbook": schema.get("sourceWorkbook", "2023_AM_State_data.xlsx"),
+            "csv_content": csv_content,
+            "answers_json": answers,
+            "status": "submitted",
+            "created_at": now,
+            "updated_at": now,
+        }
+        supabase.table("pre_survey_submissions").insert(submission_row).execute()
+
+        return jsonify(
+            {
+                "message": "Pre-survey saved",
+                "submission": submission_row,
+                "csv_filename": csv_filename,
+                "variable_count": len(schema.get("variables", [])),
+                "column_count": column_count,
+            }
+        ), 201
+    except Exception as exc:
+        return jsonify({"error": f"Could not save pre-survey: {str(exc)}"}), 500
 
 
 def fetch_latest_survey_update(topic_key, state_name, survey_year):

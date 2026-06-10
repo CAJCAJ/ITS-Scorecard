@@ -19,6 +19,7 @@ import {
   FaBalanceScale,
   FaBuilding,
   FaUserCheck,
+  FaPoll,
 } from "react-icons/fa";
 
 import "../styles/Sidebar.css";
@@ -35,6 +36,11 @@ const UPLOAD_ITEMS = [
     to: "/upload/expert-panel-review",
     label: "Expert Panel Review",
     Icon: FaUserCheck,
+  },
+  {
+    to: "/upload/its-deployment-pre-survey",
+    label: "ITS Deployment Pre-Survey",
+    Icon: FaPoll,
   },
 ];
 

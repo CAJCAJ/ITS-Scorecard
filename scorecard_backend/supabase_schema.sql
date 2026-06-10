@@ -149,6 +149,38 @@ create index if not exists idx_survey_update_submissions_lookup
 create index if not exists idx_survey_update_answers_submission
     on survey_update_answers (submission_id, question_id);
 
+create table if not exists pre_survey_submissions (
+    id uuid primary key default gen_random_uuid(),
+    csv_filename text not null,
+    state text not null,
+    survey_year text not null,
+    agency_name text not null,
+    survey_type text not null default 'AM',
+    agency_scope text not null default 'State',
+    source_workbook text,
+    csv_content text not null,
+    answers_json jsonb not null default '{}'::jsonb,
+    status text not null default 'submitted',
+    created_at timestamptz not null default timezone('utc', now()),
+    updated_at timestamptz not null default timezone('utc', now())
+);
+
+alter table pre_survey_submissions add column if not exists csv_filename text;
+alter table pre_survey_submissions add column if not exists state text;
+alter table pre_survey_submissions add column if not exists survey_year text;
+alter table pre_survey_submissions add column if not exists agency_name text;
+alter table pre_survey_submissions add column if not exists survey_type text not null default 'AM';
+alter table pre_survey_submissions add column if not exists agency_scope text not null default 'State';
+alter table pre_survey_submissions add column if not exists source_workbook text;
+alter table pre_survey_submissions add column if not exists csv_content text;
+alter table pre_survey_submissions add column if not exists answers_json jsonb not null default '{}'::jsonb;
+alter table pre_survey_submissions add column if not exists status text not null default 'submitted';
+alter table pre_survey_submissions add column if not exists created_at timestamptz not null default timezone('utc', now());
+alter table pre_survey_submissions add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+create index if not exists idx_pre_survey_submissions_lookup
+    on pre_survey_submissions (survey_year, state, agency_name, updated_at desc);
+
 create table if not exists expert_review_sessions (
     id uuid primary key default gen_random_uuid(),
     reviewer_name text,
@@ -214,5 +246,6 @@ alter table deleted_docs disable row level security;
 alter table uploaded_dataset_rows disable row level security;
 alter table survey_update_submissions disable row level security;
 alter table survey_update_answers disable row level security;
+alter table pre_survey_submissions disable row level security;
 alter table expert_review_sessions disable row level security;
 alter table expert_review_items disable row level security;
