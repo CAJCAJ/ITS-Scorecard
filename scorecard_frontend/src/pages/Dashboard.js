@@ -65,8 +65,9 @@ function isAbortError(error) {
   );
 }
 
-function buildDomainRows(results) {
-  const deploymentItems = results.deployment?.items || [];
+function buildDomainRows(results, loading = false) {
+  const currentResults = loading ? {} : results;
+  const deploymentItems = currentResults.deployment?.items || [];
   const deploymentScores = deploymentItems
     .map((item) => asNumber(item.default_value))
     .filter((value) => value !== null);
@@ -79,10 +80,10 @@ function buildDomainRows(results) {
       key: "benefitCost",
       label: "B/C Analysis",
       route: DOMAIN_ROUTES.benefitCost,
-      score: results.benefitCost?.unified_score,
-      source: results.benefitCost?.source || "No Value Available",
-      detail: results.benefitCost?.benefit_cost_ratio
-        ? `B/C ratio ${Number(results.benefitCost.benefit_cost_ratio).toFixed(3)}`
+      score: currentResults.benefitCost?.unified_score,
+      source: currentResults.benefitCost?.source || "No Value Available",
+      detail: currentResults.benefitCost?.benefit_cost_ratio
+        ? `B/C ratio ${Number(currentResults.benefitCost.benefit_cost_ratio).toFixed(3)}`
         : "Benefit and cost score from uploaded defaults or survey updates.",
     },
     {
@@ -99,11 +100,11 @@ function buildDomainRows(results) {
       key: "legislation",
       label: "Legislative Analysis",
       route: DOMAIN_ROUTES.legislation,
-      score: results.legislation?.unifiedScore,
-      source: results.legislation?.totalBills ? "Calculated from Upload" : "No Value Available",
-      detail: results.legislation?.totalBills
-        ? `${results.legislation.totalBills} bills, average raw score ${Number(
-            results.legislation.averageRawScore || 0
+      score: currentResults.legislation?.unifiedScore,
+      source: currentResults.legislation?.totalBills ? "Calculated from Upload" : "No Value Available",
+      detail: currentResults.legislation?.totalBills
+        ? `${currentResults.legislation.totalBills} bills, average raw score ${Number(
+            currentResults.legislation.averageRawScore || 0
           ).toFixed(2)}`
         : "Legislation data is not available for this state.",
     },
@@ -111,12 +112,12 @@ function buildDomainRows(results) {
       key: "planning",
       label: "Planning Analysis",
       route: DOMAIN_ROUTES.planning,
-      score: results.planning?.unified_score,
-      source: results.planning?.source || "No Value Available",
+      score: currentResults.planning?.unified_score,
+      source: currentResults.planning?.source || "No Value Available",
       detail:
-        results.planning?.award_score !== undefined
-          ? `Award ${formatScore(results.planning.award_score)}, planning ${formatScore(
-              results.planning.planning_score
+        currentResults.planning?.award_score !== undefined
+          ? `Award ${formatScore(currentResults.planning.award_score)}, planning ${formatScore(
+              currentResults.planning.planning_score
             )}`
           : "Planning score from uploaded defaults or survey updates.",
     },
@@ -124,11 +125,11 @@ function buildDomainRows(results) {
       key: "facility",
       label: "Facility Analysis",
       route: DOMAIN_ROUTES.facility,
-      score: results.facility?.unified_score,
-      source: results.facility?.source || "No Value Available",
+      score: currentResults.facility?.unified_score,
+      source: currentResults.facility?.source || "No Value Available",
       detail:
-        results.facility?.aggregate_capacity !== undefined
-          ? `Aggregate capacity ${Number(results.facility.aggregate_capacity || 0).toFixed(2)}`
+        currentResults.facility?.aggregate_capacity !== undefined
+          ? `Aggregate capacity ${Number(currentResults.facility.aggregate_capacity || 0).toFixed(2)}`
           : "Facility score from uploaded defaults or survey updates.",
     },
   ];
@@ -335,7 +336,7 @@ export default function Dashboard() {
     };
   }, [stateName, hasCompleteSummary]);
 
-  const domainRows = useMemo(() => buildDomainRows(results), [results]);
+  const domainRows = useMemo(() => buildDomainRows(results, loading), [results, loading]);
   const scores = availableScores(domainRows);
   const overallScore = scores.length
     ? scores.reduce((sum, value) => sum + value, 0) / scores.length

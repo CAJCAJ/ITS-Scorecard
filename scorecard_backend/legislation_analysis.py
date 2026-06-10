@@ -330,16 +330,18 @@ def analyze_legislation_records(records, through_year=None):
     positive_support_points = sum(max(row["score"], 0) for row in bill_rows)
     restrictive_count = score_counts[-1]
     effective_support_points = max(0, positive_support_points - (2 * restrictive_count))
-    unified_score = (
+    accumulation_score = (
         effective_support_points / (effective_support_points + 35)
         if effective_support_points > 0
         else 0
     )
+    unified_score = min(0.75, 0.5 + (0.25 * accumulation_score)) if total_bills else 0
 
     return {
         "totalBills": total_bills,
         "averageRawScore": average_raw_score,
         "unifiedScore": unified_score,
+        "accumulationScore": accumulation_score,
         "positiveSupportPoints": positive_support_points,
         "effectiveSupportPoints": effective_support_points,
         "throughYear": str(normalized_year) if normalized_year is not None else None,
