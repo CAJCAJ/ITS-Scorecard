@@ -1153,8 +1153,78 @@ def find_latest_record_by_doc_type(doc_type, state_name, survey_year):
     return None, None
 
 
+def record_value_present(value):
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return bool(value)
+    return True
+
+
+def combine_planning_metadata(existing_value, new_value):
+    values = []
+    for value in [existing_value, new_value]:
+        if not record_value_present(value):
+            continue
+        if isinstance(value, list):
+            parts = value
+        else:
+            parts = str(value).replace("\n", " ").split(";")
+        for part in parts:
+            text = str(part).strip()
+            if text and text not in values:
+                values.append(text)
+    return "; ".join(values)
+
+
+def find_matching_records_by_doc_type(doc_type, state_name, survey_year):
+    documents = execute_paged_select(
+        "documents",
+        lambda query: query.eq("doc_type", doc_type)
+        .eq("status", "uploaded")
+        .order("created_at", desc=True),
+    )
+    matches = []
+    for document in documents:
+        rows = fetch_document_rows(document["id"])
+        for row in rows:
+            if (
+                str(get_record_value(row, "state", "State") or "").strip().lower()
+                == state_name.strip().lower()
+                and str(get_record_value(row, "survey_year", "Survey Year") or "").strip()
+                == str(survey_year).strip()
+            ):
+                matches.append((row, document))
+                break
+    return matches
+
+
+def merge_planning_records(matches):
+    merged = {}
+    document_ids = []
+    for record, document in reversed(matches):
+        document_id = document.get("id") if document else None
+        if document_id:
+            document_ids.append(document_id)
+        for key, value in record.items():
+            if not record_value_present(value):
+                continue
+            if key in {"source_notes", "Source Notes", "source_urls", "Source URLs"}:
+                merged[key] = combine_planning_metadata(merged.get(key), value)
+            else:
+                merged[key] = value
+    merged["_merged_document_ids"] = list(reversed(document_ids))
+    return merged
+
+
 def find_latest_planning_record(state_name, survey_year):
-    return find_latest_record_by_doc_type("planning", state_name, survey_year)
+    matches = find_matching_records_by_doc_type("planning", state_name, survey_year)
+    if not matches:
+        return None, None
+    return merge_planning_records(matches), matches[0][1]
+
 
 
 def find_latest_facility_record(state_name, survey_year):
@@ -1191,6 +1261,7 @@ def get_planning_score():
             result["evidence_level"] = get_record_value(planning_record, "evidence_level", "Evidence Level")
             result["source_notes"] = get_record_value(planning_record, "source_notes", "Source Notes")
             result["document_id"] = document.get("id") if document else None
+            result["document_ids"] = planning_record.get("_merged_document_ids") or []
             return jsonify(result)
 
         submission, answers = fetch_latest_survey_update(
