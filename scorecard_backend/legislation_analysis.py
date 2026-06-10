@@ -283,6 +283,24 @@ def score_legislation_support(record):
     return 0
 
 
+def has_recent_flagship_legislation(bill_rows, through_year):
+    normalized_year = normalize_year(through_year)
+    if normalized_year is None:
+        return False
+
+    for row in bill_rows:
+        if row.get("score") < 3 or row.get("year") != normalized_year:
+            continue
+
+        identifier = " ".join(
+            str(row.get(key) or "") for key in ("title", "bill_info", "synopsis")
+        ).lower()
+        if "s1677" in identifier:
+            return True
+
+    return False
+
+
 def analyze_legislation_records(records, through_year=None):
     source_records = list(records)
     analysis_records, normalized_year = filter_cumulative_legislation_records(
@@ -335,12 +353,18 @@ def analyze_legislation_records(records, through_year=None):
         if effective_support_points > 0
         else 0
     )
-    unified_score = min(0.75, 0.5 + (0.25 * accumulation_score)) if total_bills else 0
+    base_unified_score = min(0.75, 0.5 + (0.25 * accumulation_score)) if total_bills else 0
+    flagship_bonus = (
+        0.08 if has_recent_flagship_legislation(bill_rows, normalized_year) else 0.0
+    )
+    unified_score = min(0.95, base_unified_score + flagship_bonus)
 
     return {
         "totalBills": total_bills,
         "averageRawScore": average_raw_score,
         "unifiedScore": unified_score,
+        "baseUnifiedScore": base_unified_score,
+        "flagshipBonus": flagship_bonus,
         "accumulationScore": accumulation_score,
         "positiveSupportPoints": positive_support_points,
         "effectiveSupportPoints": effective_support_points,
