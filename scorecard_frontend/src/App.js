@@ -27,6 +27,7 @@ import FacilityAnalysis from "./pages/FacilityAnalysis";
 import PlanningAnalysis from "./pages/PlanningAnalysis";
 import BenefitCostAnalysis from "./pages/BenefitCostAnalysis";
 import ExpertPanelReview from "./pages/ExpertPanelReview";
+import DeploymentPreSurvey from "./pages/DeploymentPreSurvey";
 
 import { DashboardProvider } from "./context/DashboardContext";
 import { isAuthed, getRole } from "./utils/auth";
@@ -144,6 +145,15 @@ function AppLayout({ collapsed, onToggleSidebar }) {
             element={
               <ProtectedRoute>
                 <ExpertPanelReview />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/upload/its-deployment-pre-survey"
+            element={
+              <ProtectedRoute>
+                <DeploymentPreSurvey />
               </ProtectedRoute>
             }
           />
