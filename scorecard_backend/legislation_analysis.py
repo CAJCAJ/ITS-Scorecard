@@ -353,7 +353,7 @@ def analyze_legislation_records(records, through_year=None):
         if effective_support_points > 0
         else 0
     )
-    base_unified_score = min(0.75, 0.5 + (0.25 * accumulation_score)) if total_bills else 0
+    base_unified_score = min(0.85, 0.6 + (0.25 * accumulation_score)) if total_bills else 0
     flagship_bonus = (
         0.08 if has_recent_flagship_legislation(bill_rows, normalized_year) else 0.0
     )
