@@ -294,29 +294,44 @@ def fetch_all_state_records():
     return state_records
 
 
-def get_latest_legislation_documents():
+def get_legislation_documents_by_state():
     legislation_docs = execute_paged_select(
         "documents",
         lambda query: query.eq("doc_type", "legislation").eq("status", "uploaded").order("created_at", desc=True),
     )
 
-    latest = {}
+    grouped = {}
     for doc in legislation_docs:
         document_state = doc.get("state")
         if not document_state:
             rows = fetch_document_rows(doc["id"])
             document_state = infer_single_state_from_records(rows)
-        if document_state and document_state not in latest:
-            latest[document_state] = doc
-    return latest
+        if document_state:
+            grouped.setdefault(document_state, []).append(doc)
+    return grouped
+
+
+def get_latest_legislation_documents():
+    return {
+        state_name: documents[0]
+        for state_name, documents in get_legislation_documents_by_state().items()
+        if documents
+    }
+
+
+def get_legislation_documents(state_name):
+    return get_legislation_documents_by_state().get(state_name, [])
 
 
 def fetch_legislation_records(state_name):
-    latest_docs = get_latest_legislation_documents()
-    document = latest_docs.get(state_name)
-    if not document:
+    documents = get_legislation_documents(state_name)
+    if not documents:
         return []
-    return fetch_document_rows(document["id"])
+
+    records = []
+    for document in documents:
+        records.extend(fetch_document_rows(document["id"]))
+    return records
 
 
 def purge_expired_deleted_docs():
