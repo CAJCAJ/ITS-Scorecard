@@ -57,6 +57,15 @@ function availableScores(items) {
     .filter((value) => value !== null);
 }
 
+function hasDeploymentEvidence(item) {
+  const scoredAgencyCount = asNumber(item?.scored_agency_count);
+  return item?.is_policy_fallback !== true && scoredAgencyCount !== null && scoredAgencyCount > 0;
+}
+
+function deploymentEvidenceItems(result) {
+  return (result?.items || []).filter(hasDeploymentEvidence);
+}
+
 function isAbortError(error) {
   return (
     axios.isCancel?.(error) ||
@@ -67,7 +76,7 @@ function isAbortError(error) {
 
 function buildDomainRows(results, loading = false) {
   const currentResults = loading ? {} : results;
-  const deploymentItems = currentResults.deployment?.items || [];
+  const deploymentItems = deploymentEvidenceItems(currentResults.deployment);
   const deploymentScores = deploymentItems
     .map((item) => asNumber(item.default_value))
     .filter((value) => value !== null);
@@ -136,7 +145,7 @@ function buildDomainRows(results, loading = false) {
 }
 
 function calculateDeploymentScore(result) {
-  const deploymentItems = result?.items || [];
+  const deploymentItems = deploymentEvidenceItems(result);
   const deploymentScores = deploymentItems
     .map((item) => asNumber(item.default_value))
     .filter((value) => value !== null);
