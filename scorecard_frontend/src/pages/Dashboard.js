@@ -167,6 +167,12 @@ function calculateOverallScore(results) {
   return scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
 }
 
+function normalizeDisplayRows(rows) {
+  return rows.map((row) =>
+    row.source === "No Value Available" ? { ...row, score: null } : row
+  );
+}
+
 export default function Dashboard() {
   const { selectedState, setSelectedState } = useDashboard();
   const [selectedYear, setSelectedYear] = useState("2023");
@@ -345,7 +351,10 @@ export default function Dashboard() {
     };
   }, [stateName, hasCompleteSummary]);
 
-  const domainRows = useMemo(() => buildDomainRows(results, loading), [results, loading]);
+  const domainRows = useMemo(
+    () => normalizeDisplayRows(buildDomainRows(results, loading)),
+    [results, loading]
+  );
   const scores = availableScores(domainRows);
   const overallScore = scores.length
     ? scores.reduce((sum, value) => sum + value, 0) / scores.length
