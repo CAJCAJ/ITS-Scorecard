@@ -5,7 +5,7 @@ from survey_score_utils import parse_first_number, parse_positive_number
 
 
 FACILITY_QUESTIONS = QUESTION_IDS[TOPIC_KEYS["facility"]]
-FACILITY_MAX_SCORE = 1.0
+FACILITY_MAX_SCORE = 0.98
 FACILITY_CAPACITY_SCALE = 7.5
 FACILITY_CURVE_SHAPE = 1.5
 
