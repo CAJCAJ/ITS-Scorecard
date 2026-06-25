@@ -28,7 +28,12 @@ from planning_analysis import compute_planning_score
 from policy_legislation_analysis import compute_policy_legislation_score
 from scorecard_processor import analyze_state_data
 from supabase_config import create_supabase_client
-from survey_scoring import compute_default_values_for_year, parse_survey_filename, parse_survey_workbook
+from survey_scoring import (
+    compute_default_values_for_year,
+    compute_deployment_coverage_for_year,
+    parse_survey_filename,
+    parse_survey_workbook,
+)
 
 app = Flask(__name__)
 
@@ -595,11 +600,13 @@ def get_deployment_default_values():
             return jsonify({"items": [], "message": f"No Data Found for Year {survey_year}"}), 200
 
         uploaded_rows = fetch_rows_for_documents([doc["id"] for doc in survey_documents])
-        items = compute_default_values_for_year(survey_documents, uploaded_rows, state_name)
-        if not items:
+        result = compute_deployment_coverage_for_year(
+            survey_documents, uploaded_rows, state_name
+        )
+        if not result.get("items"):
             return jsonify({"items": [], "message": f"No Data Found for Year {survey_year}"}), 200
 
-        return jsonify({"items": items, "message": ""})
+        return jsonify(result)
     except Exception as exc:
         return jsonify({"error": f"Could not load deployment default values: {str(exc)}"}), 500
 

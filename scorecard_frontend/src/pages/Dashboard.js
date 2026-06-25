@@ -77,10 +77,13 @@ function isAbortError(error) {
 function buildDomainRows(results, loading = false) {
   const currentResults = loading ? {} : results;
   const deploymentItems = deploymentEvidenceItems(currentResults.deployment);
+  const deploymentCoverageScore = asNumber(currentResults.deployment?.coverage_score);
   const deploymentScores = deploymentItems
     .map((item) => asNumber(item.default_value))
     .filter((value) => value !== null);
-  const deploymentScore = deploymentScores.length
+  const deploymentScore = deploymentCoverageScore !== null
+    ? deploymentCoverageScore
+    : deploymentScores.length
     ? deploymentScores.reduce((sum, value) => sum + value, 0) / deploymentScores.length
     : null;
 
@@ -102,7 +105,7 @@ function buildDomainRows(results, loading = false) {
       score: deploymentScore,
       source: deploymentItems.length ? "Calculated from Upload" : "No Value Available",
       detail: deploymentItems.length
-        ? `${deploymentItems.length} deployment domains summarized`
+        ? `${currentResults.deployment?.agency_weights?.length || 0} agency weights summarized`
         : results.deployment?.message || "Deployment workbook defaults are not available.",
     },
     {
@@ -145,6 +148,9 @@ function buildDomainRows(results, loading = false) {
 }
 
 function calculateDeploymentScore(result) {
+  const coverageScore = asNumber(result?.coverage_score);
+  if (coverageScore !== null) return coverageScore;
+
   const deploymentItems = deploymentEvidenceItems(result);
   const deploymentScores = deploymentItems
     .map((item) => asNumber(item.default_value))
