@@ -669,13 +669,136 @@ def build_default_seed_table(domain_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def compute_default_values_for_year(
+POSITIVE_STRENGTH_K = 0.7
+
+
+def survey_mode_from_filename(filename: str) -> str:
+    parsed = parse_survey_filename(Path(filename).name)
+    return parsed["agency_type"] if parsed else ""
+
+
+def is_missing_label(value: Any) -> bool:
+    text = normalize_space(norm_text(value))
+    return any(
+        cue in text
+        for cue in (
+            "no response",
+            "skip logic",
+            "don't know",
+            "don’t know",
+            "not applicable",
+        )
+    )
+
+
+def is_no_deployment_label(value: Any) -> bool:
+    text = f" {normalize_space(norm_text(value))} "
+    return any(
+        cue in text
+        for cue in (
+            " no ",
+            " no,",
+            " none",
+            "not deployed",
+            "does not deploy",
+            "no plans",
+            "no tools",
+            "no methods",
+            "no roadside",
+            "no vehicle",
+            "no real-time",
+            "no its",
+            "no external data",
+        )
+    )
+
+
+def is_positive_deployment_answer(raw_value: Any, meta: VariableMeta) -> bool:
+    number = parse_number(raw_value)
+    if number is None:
+        return False
+
+    as_int = int(number)
+    if as_int in {SPECIAL_NO_RESPONSE, SPECIAL_SKIP_LOGIC}:
+        return False
+
+    fmt = meta.variable_format.lower()
+    labels = parse_value_labels(meta.value_labels_raw)
+    label = labels.get(as_int, "")
+
+    if is_missing_label(label) or is_missing_label(meta.item_question):
+        return False
+
+    if fmt == "boolean":
+        if as_int != 1:
+            return False
+        if (
+            meta.polarity == "negative"
+            or is_no_deployment_label(label)
+            or is_no_deployment_label(meta.item_question)
+        ):
+            return False
+        return True
+
+    if fmt == "multiple choice":
+        if is_no_deployment_label(label) or is_no_deployment_label(meta.item_question):
+            return False
+        label_text = normalize_space(label)
+        if any(
+            cue in label_text
+            for cue in (
+                "yes",
+                "within",
+                "currently",
+                "planning",
+                "plans",
+                "deployed",
+                "testing",
+                "supporting",
+            )
+        ):
+            return True
+        return True
+
+    if fmt == "numeric":
+        return float(number) > 0
+
+    return False
+
+
+def positive_category_strength(positive_item_count: int | float) -> float | None:
+    count = int(positive_item_count or 0)
+    if count <= 0:
+        return None
+    return 1.0 - math.exp(-POSITIVE_STRENGTH_K * count)
+
+
+def deployment_scale_proxy(answer_row: pd.Series, file_name: str, positive_item_count: int) -> tuple[float, str]:
+    mode = survey_mode_from_filename(file_name)
+    if mode == "AM":
+        for candidate in ("AQ02", "AQ2", "Q02", "Q2"):
+            value = parse_number(answer_row.get(candidate))
+            if value is not None and value > 0:
+                return float(value), f"{candidate} signalized intersections"
+        return max(1.0, float(positive_item_count)), "AM positive deployment/activity answers fallback"
+
+    prefix = "FQ" if mode == "FM" else "TQ" if mode == "TM" else "survey"
+    return max(1.0, float(positive_item_count)), f"{prefix} positive deployment/activity answers"
+
+
+def compute_deployment_coverage_for_year(
     survey_documents: list[dict[str, Any]],
     uploaded_rows: list[dict[str, Any]],
     state_name: str,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     if not survey_documents:
-        return []
+        return {
+            "items": [],
+            "agency_weights": [],
+            "mode_scores": [],
+            "coverage_score": None,
+            "message": "",
+        }
 
     rows_by_doc = {}
     for row in uploaded_rows:
@@ -683,6 +806,7 @@ def compute_default_values_for_year(
 
     matches_df = load_domain_matches()
     item_rows = []
+    scale_by_agency: dict[str, dict[str, Any]] = {}
 
     for document in survey_documents:
         doc_rows = rows_by_doc.get(document["id"], [])
@@ -749,67 +873,234 @@ def compute_default_values_for_year(
         if not scored_metas:
             continue
 
-        unique_meta_by_var = {}
-        for _, _, meta in scored_metas:
-            unique_meta_by_var.setdefault(meta.answer_variable, meta)
-
-        stats_by_var = {
-            answer_variable: compute_variable_stats(filtered_answer_df, meta)
-            for answer_variable, meta in unique_meta_by_var.items()
-            if answer_variable in filtered_answer_df.columns
-        }
-
         survey_year = str(document.get("survey_year") or "")
+        survey_mode = survey_mode_from_filename(file_name)
         for row_index, answer_row in filtered_answer_df.iterrows():
             agency = build_agency_identity(answer_row)
+            base_agency_key = agency["agency_key"]
+            agency["agency_key"] = f"{base_agency_key}__{survey_mode}" if survey_mode else base_agency_key
+            positive_total_for_row = 0
+            row_items = []
+
             for domain, priority, meta in scored_metas:
                 if meta.answer_variable not in filtered_answer_df.columns:
                     continue
-                stats = stats_by_var.get(meta.answer_variable, {"Observed_Min": "", "Observed_Max": "", "Allowed_Min": "", "Allowed_Max": ""})
-                score, included = score_answer(answer_row[meta.answer_variable], meta, stats)
-                item_rows.append(
+                is_positive = is_positive_deployment_answer(
+                    answer_row[meta.answer_variable], meta
+                )
+                if is_positive:
+                    positive_total_for_row += 1
+                row_items.append(
                     {
                         **agency,
                         "survey_year": survey_year,
+                        "survey_mode": survey_mode,
                         "domain_name": domain,
                         "weight_priority": priority,
-                        "included_in_domain_total": included,
-                        "unified_item_score": score,
+                        "positive_deployment": is_positive,
                         "source_row_index": int(row_index),
                     }
                 )
 
+            scale, scale_source = deployment_scale_proxy(
+                answer_row, file_name, positive_total_for_row
+            )
+            current_scale = scale_by_agency.get(agency["agency_key"])
+            if current_scale is None or scale > current_scale["scale_proxy"]:
+                scale_by_agency[agency["agency_key"]] = {
+                    **agency,
+                    "survey_mode": survey_mode,
+                    "survey_year": survey_year,
+                    "scale_proxy": scale,
+                    "scale_source": scale_source,
+                }
+            item_rows.extend(row_items)
+
     item_df = pd.DataFrame(item_rows)
     if item_df.empty:
-        return []
+        return {
+            "items": [],
+            "agency_weights": [],
+            "mode_scores": [],
+            "coverage_score": None,
+            "message": "",
+        }
 
-    domain_df = aggregate_domain_scores(item_df)
-    if domain_df.empty:
-        return []
+    group_cols = [
+        "agency_key",
+        "state",
+        "agency_id",
+        "agency_name",
+        "agency_type",
+        "metro_area",
+        "region",
+        "survey_year",
+        "survey_mode",
+        "domain_name",
+    ]
+    category_df = (
+        item_df.groupby(group_cols, dropna=False)
+        .agg(
+            positive_items=("positive_deployment", "sum"),
+            scored_item_count=("positive_deployment", "count"),
+        )
+        .reset_index()
+    )
+    category_df["category_strength"] = category_df["positive_items"].map(
+        positive_category_strength
+    )
+    positive_category_df = category_df[category_df["positive_items"] > 0].copy()
+    if positive_category_df.empty:
+        return {
+            "items": [],
+            "agency_weights": [],
+            "mode_scores": [],
+            "coverage_score": None,
+            "message": "",
+        }
 
-    default_df = build_default_seed_table(domain_df)
-    if default_df.empty:
-        return []
-
-    survey_year = str(survey_documents[0].get("survey_year") or "")
-    results = []
-    year_df = default_df[default_df["survey_year"] == survey_year]
-    for domain_name in DEFAULT_DOMAIN_ORDER:
-        subset = year_df[year_df["domain_name"] == domain_name]
-        if subset.empty:
-            continue
-        row = subset.iloc[0]
-        results.append(
+    agency_rows = []
+    for keys, group in positive_category_df.groupby(
+        [
+            "agency_key",
+            "state",
+            "agency_id",
+            "agency_name",
+            "agency_type",
+            "metro_area",
+            "region",
+            "survey_year",
+            "survey_mode",
+        ],
+        dropna=False,
+    ):
+        agency_key = keys[0]
+        scale = scale_by_agency.get(agency_key, {})
+        agency_weight = float(group["category_strength"].astype(float).mean())
+        scale_proxy = float(scale.get("scale_proxy") or 1.0)
+        agency_rows.append(
             {
-                "survey_year": survey_year,
-                "state": state_name,
-                "domain_name": domain_name,
-                "default_value": float(row["default_value"]),
-                "criterion": row["criterion"],
-                "scored_agency_count": int(row["scored_agency_count"]),
-                "covered_agency_count": int(row.get("covered_agency_count", 0)),
-                "is_policy_fallback": bool(row["is_policy_fallback"]),
+                "agency_key": agency_key,
+                "state": keys[1],
+                "agency_id": keys[2],
+                "agency_name": keys[3],
+                "agency_type": keys[4],
+                "metro_area": keys[5],
+                "region": keys[6],
+                "survey_year": keys[7],
+                "survey_mode": keys[8],
+                "positive_deployment_categories": int(group["domain_name"].nunique()),
+                "positive_items_total": int(group["positive_items"].sum()),
+                "agency_weight": round(agency_weight, 6),
+                "scale_proxy": round(scale_proxy, 6),
+                "scale_source": scale.get("scale_source", "fallback=1"),
+                "contribution_score": round(agency_weight * scale_proxy, 6),
             }
         )
 
-    return results
+    agency_df = pd.DataFrame(agency_rows)
+    if agency_df.empty:
+        return {
+            "items": [],
+            "agency_weights": [],
+            "mode_scores": [],
+            "coverage_score": None,
+            "message": "",
+        }
+
+    agency_df["mode_contribution_total"] = agency_df.groupby("survey_mode")[
+        "contribution_score"
+    ].transform("sum")
+    agency_df["contribution_percentage"] = agency_df.apply(
+        lambda row: (
+            float(row["contribution_score"]) / float(row["mode_contribution_total"]) * 100.0
+            if float(row["mode_contribution_total"] or 0) > 0
+            else 0.0
+        ),
+        axis=1,
+    )
+
+    mode_rows = []
+    for survey_mode, group in agency_df.groupby("survey_mode", dropna=False):
+        mode_score = float(
+            (
+                group["agency_weight"].astype(float)
+                * group["contribution_percentage"].astype(float)
+                / 100.0
+            ).sum()
+        )
+        mode_rows.append(
+            {
+                "survey_mode": survey_mode,
+                "coverage_score": round(mode_score, 6),
+                "agency_count": int(len(group)),
+            }
+        )
+    mode_scores = sorted(mode_rows, key=lambda row: str(row["survey_mode"]))
+    coverage_score = (
+        sum(row["coverage_score"] for row in mode_scores) / len(mode_scores)
+        if mode_scores
+        else None
+    )
+
+    category_scale_df = positive_category_df.merge(
+        agency_df[["agency_key", "scale_proxy"]],
+        on="agency_key",
+        how="left",
+    )
+    results = []
+    for domain_name in DEFAULT_DOMAIN_ORDER:
+        subset = category_scale_df[category_scale_df["domain_name"] == domain_name]
+        if subset.empty:
+            continue
+        scale_weights = subset["scale_proxy"].astype(float).fillna(1.0)
+        default_value = float(
+            (subset["category_strength"].astype(float) * scale_weights).sum()
+            / scale_weights.sum()
+        )
+        results.append(
+            {
+                "survey_year": str(subset["survey_year"].iloc[0]),
+                "state": state_name,
+                "domain_name": domain_name,
+                "default_value": round(default_value, 6),
+                "criterion": "positive_deployment_strength_weighted_by_agency_scale",
+                "scored_agency_count": int(subset["agency_key"].nunique()),
+                "covered_agency_count": int(subset["agency_key"].nunique()),
+                "positive_agency_count": int(subset["agency_key"].nunique()),
+                "positive_items_total": int(subset["positive_items"].sum()),
+                "is_policy_fallback": False,
+            }
+        )
+
+    agency_records = (
+        agency_df.sort_values(
+            ["survey_mode", "contribution_percentage", "agency_weight"],
+            ascending=[True, False, False],
+        )
+        .drop(columns=["mode_contribution_total"])
+        .to_dict(orient="records")
+    )
+    for record in agency_records:
+        record["agency_weight"] = round(float(record["agency_weight"]), 6)
+        record["contribution_percentage"] = round(
+            float(record["contribution_percentage"]), 6
+        )
+
+    return {
+        "items": results,
+        "agency_weights": agency_records,
+        "mode_scores": mode_scores,
+        "coverage_score": round(float(coverage_score), 6) if coverage_score is not None else None,
+        "message": "",
+    }
+
+
+def compute_default_values_for_year(
+    survey_documents: list[dict[str, Any]],
+    uploaded_rows: list[dict[str, Any]],
+    state_name: str,
+) -> list[dict[str, Any]]:
+    return compute_deployment_coverage_for_year(
+        survey_documents, uploaded_rows, state_name
+    ).get("items", [])
