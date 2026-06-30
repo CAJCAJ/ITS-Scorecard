@@ -48,9 +48,16 @@ def parse_cors_origins():
 CORS(app, resources={r"/api/*": {"origins": parse_cors_origins()}})
 
 supabase = create_supabase_client()
-PRE_SURVEY_SCHEMA_PATH = os.path.join(
-    os.path.dirname(__file__), "data", "pre_survey_2023_am_state_schema.json"
-)
+PRE_SURVEY_SCHEMA_PATHS = {
+    "AM": os.path.join(os.path.dirname(__file__), "data", "pre_survey_2023_am_state_schema.json"),
+    "FM": os.path.join(os.path.dirname(__file__), "data", "pre_survey_2023_fm_schema.json"),
+    "TM": os.path.join(os.path.dirname(__file__), "data", "pre_survey_2023_tm_schema.json"),
+}
+PRE_SURVEY_TYPE_LABELS = {
+    "AM": "Arterial Management",
+    "FM": "Freeway Management",
+    "TM": "Transit Management",
+}
 
 SURVEY_SCORE_COMPUTERS = {
     "benefit_cost": compute_benefit_cost_score,
@@ -710,9 +717,23 @@ def normalize_answer_for_storage(value):
     }
 
 
-def load_pre_survey_schema():
-    with open(PRE_SURVEY_SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
-        return json.load(schema_file)
+def normalize_pre_survey_type(value):
+    survey_type = str(value or "AM").strip().upper()
+    return survey_type if survey_type in PRE_SURVEY_SCHEMA_PATHS else "AM"
+
+
+def load_pre_survey_schema(survey_type="AM"):
+    normalized_type = normalize_pre_survey_type(survey_type)
+    with open(PRE_SURVEY_SCHEMA_PATHS[normalized_type], "r", encoding="utf-8") as schema_file:
+        schema = json.load(schema_file)
+    schema["surveyType"] = normalized_type
+    schema["surveyTypeLabel"] = PRE_SURVEY_TYPE_LABELS.get(
+        normalized_type, schema.get("surveyTypeLabel", normalized_type)
+    )
+    schema["surveyTypeOptions"] = [
+        {"value": key, "label": label} for key, label in PRE_SURVEY_TYPE_LABELS.items()
+    ]
+    return schema
 
 
 def safe_csv_filename_part(value):
@@ -722,9 +743,16 @@ def safe_csv_filename_part(value):
 
 
 def build_pre_survey_csv(schema, survey_year, agency_name, state_name, answers):
-    columns = ["SurveyYear", "AgencyName", "State", *schema.get("variables", [])]
+    columns = [
+        "SurveyYear",
+        "SurveyType",
+        "AgencyName",
+        "State",
+        *schema.get("variables", []),
+    ]
     row = {
         "SurveyYear": survey_year,
+        "SurveyType": schema.get("surveyType", "AM"),
         "AgencyName": agency_name,
         "State": state_name,
     }
@@ -745,7 +773,8 @@ def build_pre_survey_csv(schema, survey_year, agency_name, state_name, answers):
 @app.route("/api/pre-survey/schema", methods=["GET"])
 def get_pre_survey_schema():
     try:
-        return jsonify(load_pre_survey_schema())
+        survey_type = normalize_pre_survey_type(request.args.get("survey_type"))
+        return jsonify(load_pre_survey_schema(survey_type))
     except Exception as exc:
         return jsonify({"error": f"Could not load pre-survey schema: {str(exc)}"}), 500
 
@@ -755,11 +784,12 @@ def save_pre_survey_submission():
     try:
         payload = request.get_json(silent=True) or {}
         survey_year = str(payload.get("survey_year") or "").strip()
+        survey_type = normalize_pre_survey_type(payload.get("survey_type"))
         agency_name = str(payload.get("agency_name") or "").strip()
         state_name = str(payload.get("state") or "").strip()
         answers = payload.get("answers", {})
 
-        schema = load_pre_survey_schema()
+        schema = load_pre_survey_schema(survey_type)
         if survey_year not in set(schema.get("yearOptions", [])):
             return jsonify({"error": "Survey year must be 2024 or 2025."}), 400
         if not agency_name:
@@ -772,7 +802,10 @@ def save_pre_survey_submission():
         csv_content, column_count = build_pre_survey_csv(
             schema, survey_year, agency_name, state_name, answers
         )
-        csv_filename = f"{survey_year}_{safe_csv_filename_part(agency_name)}_Pre_Survey.csv"
+        csv_filename = (
+            f"{survey_year}_{safe_csv_filename_part(agency_name)}_"
+            f"{schema.get('surveyType', survey_type)}_Pre_Survey.csv"
+        )
         now = datetime.now(timezone.utc).isoformat()
         submission_row = {
             "id": str(uuid.uuid4()),
@@ -780,7 +813,7 @@ def save_pre_survey_submission():
             "state": state_name,
             "survey_year": survey_year,
             "agency_name": agency_name,
-            "survey_type": schema.get("surveyType", "AM"),
+            "survey_type": schema.get("surveyType", survey_type),
             "agency_scope": schema.get("agencyScope", "State"),
             "source_workbook": schema.get("sourceWorkbook", "2023_AM_State_data.xlsx"),
             "csv_content": csv_content,

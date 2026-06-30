@@ -31,6 +31,8 @@ DEFAULT_DOMAIN_ORDER = [
     "Work Zone ITS and Queue Warning",
 ]
 
+MINIMUM_AGENCY_CONTRIBUTION_PERCENTAGE = 4.0
+
 STATE_CODE_MAP = {
     "Texas": "TX",
     "New Jersey": "NJ",
@@ -91,6 +93,55 @@ def norm_text(value: Any) -> str:
     if isinstance(value, float) and math.isnan(value):
         return ""
     return str(value).strip()
+
+
+def apply_contribution_floor(
+    percentages: pd.Series,
+    minimum_percentage: float = MINIMUM_AGENCY_CONTRIBUTION_PERCENTAGE,
+) -> pd.Series:
+    """Apply a percentage floor while preserving proportions and a 100% total."""
+    values = percentages.astype(float).clip(lower=0.0)
+    agency_count = len(values)
+    if agency_count == 0:
+        return values
+
+    # A requested floor above 100 / n is mathematically impossible.
+    effective_floor = min(float(minimum_percentage), 100.0 / agency_count)
+    raw_total = float(values.sum())
+    if raw_total <= 0:
+        return pd.Series(100.0 / agency_count, index=values.index, dtype=float)
+
+    normalized = values / raw_total * 100.0
+    adjusted = pd.Series(0.0, index=values.index, dtype=float)
+    active = pd.Series(True, index=values.index)
+
+    while active.any():
+        fixed_total = float(adjusted[~active].sum())
+        remaining_total = max(0.0, 100.0 - fixed_total)
+        active_values = normalized[active]
+        active_total = float(active_values.sum())
+        if active_total > 0:
+            proposed = active_values / active_total * remaining_total
+        else:
+            proposed = pd.Series(
+                remaining_total / int(active.sum()),
+                index=active_values.index,
+                dtype=float,
+            )
+
+        below_floor = proposed < effective_floor - 1e-12
+        if not below_floor.any():
+            adjusted.loc[active] = proposed
+            break
+
+        floor_indexes = proposed[below_floor].index
+        adjusted.loc[floor_indexes] = effective_floor
+        active.loc[floor_indexes] = False
+
+    residual = 100.0 - float(adjusted.sum())
+    if abs(residual) > 1e-10:
+        adjusted.loc[adjusted.idxmax()] += residual
+    return adjusted
 
 
 def collapse_spaces(value: Any) -> str:
@@ -1019,6 +1070,9 @@ def compute_deployment_coverage_for_year(
         ),
         axis=1,
     )
+    agency_df["contribution_percentage"] = agency_df.groupby(
+        "survey_mode", dropna=False
+    )["contribution_percentage"].transform(apply_contribution_floor)
 
     mode_rows = []
     for survey_mode, group in agency_df.groupby("survey_mode", dropna=False):
