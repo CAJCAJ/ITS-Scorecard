@@ -3,6 +3,12 @@ import axios from "axios";
 import { apiUrl } from "../services/api";
 import { getSessionState } from "../utils/auth";
 
+const SURVEY_TYPE_OPTIONS = [
+  { value: "AM", label: "Arterial Management" },
+  { value: "FM", label: "Freeway Management" },
+  { value: "TM", label: "Transit Management" },
+];
+
 function inputStyle() {
   return {
     width: "100%",
@@ -168,6 +174,7 @@ function QuestionCard({ question, index, answers, onAnswerChange }) {
 
 export default function DeploymentPreSurvey() {
   const [schema, setSchema] = useState(null);
+  const [selectedSurveyType, setSelectedSurveyType] = useState("AM");
   const [surveyYear, setSurveyYear] = useState("2024");
   const [agencyName, setAgencyName] = useState("");
   const [answers, setAnswers] = useState({});
@@ -183,10 +190,14 @@ export default function DeploymentPreSurvey() {
       setLoading(true);
       setError("");
       try {
-        const response = await axios.get(apiUrl("/pre-survey/schema"));
+        const response = await axios.get(apiUrl("/pre-survey/schema"), {
+          params: { survey_type: selectedSurveyType },
+        });
         if (!cancelled) {
           setSchema(response.data);
           setSurveyYear(response.data?.yearOptions?.[0] || "2024");
+          setAnswers({});
+          setMessage("");
         }
       } catch (requestError) {
         if (!cancelled) {
@@ -203,7 +214,7 @@ export default function DeploymentPreSurvey() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedSurveyType]);
 
   const answeredCount = useMemo(
     () =>
@@ -229,6 +240,7 @@ export default function DeploymentPreSurvey() {
     try {
       const response = await axios.post(apiUrl("/pre-survey/submissions"), {
         survey_year: surveyYear,
+        survey_type: selectedSurveyType,
         agency_name: agencyName,
         state: stateName,
         answers,
@@ -254,9 +266,50 @@ export default function DeploymentPreSurvey() {
 
       <section className="card" style={{ padding: "28px", borderRadius: "20px", marginBottom: "24px" }}>
         <p style={{ color: "#607185", lineHeight: 1.7, marginTop: 0 }}>
-          Complete a 2024 or 2025 pre-survey using the 2023 AM State survey structure.
+          Complete a 2024 or 2025 pre-survey using the selected 2023 ITS deployment survey structure.
           The state is locked to the current login session.
         </p>
+
+        <label
+          style={{
+            display: "block",
+            marginBottom: "22px",
+            padding: "18px",
+            borderRadius: "18px",
+            background: "linear-gradient(135deg, #e8f1ff, #f8fbff)",
+            border: "2px solid #b8d4ff",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 900,
+              marginBottom: "10px",
+              fontSize: "1.08rem",
+              color: "#0f3d77",
+            }}
+          >
+            Select Pre-Survey Type
+          </div>
+          <select
+            value={selectedSurveyType}
+            onChange={(event) => setSelectedSurveyType(event.target.value)}
+            style={{
+              ...inputStyle(),
+              minHeight: "58px",
+              fontSize: "1.16rem",
+              fontWeight: 850,
+              border: "2px solid #2f80ed",
+              color: "#102a43",
+            }}
+          >
+            {(schema?.surveyTypeOptions || SURVEY_TYPE_OPTIONS).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} ({option.value})
+              </option>
+            ))}
+          </select>
+        </label>
+
         <div
           style={{
             display: "grid",
@@ -319,10 +372,11 @@ export default function DeploymentPreSurvey() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(140px, 1fr))",
+            gridTemplateColumns: "repeat(5, minmax(140px, 1fr))",
             gap: "16px",
           }}
         >
+          <div><strong>Survey Type</strong><br />{schema?.surveyTypeLabel || "Arterial Management"}</div>
           <div><strong>Source</strong><br />{schema?.sourceWorkbook || "2023_AM_State_data.xlsx"}</div>
           <div><strong>Main Questions</strong><br />{schema?.questions?.length || 0}</div>
           <div><strong>Survey Variables</strong><br />{schema?.variables?.length || 0}</div>
