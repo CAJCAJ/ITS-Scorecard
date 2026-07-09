@@ -1707,6 +1707,35 @@ def save_expert_review_session():
         return jsonify({"error": f"Could not save expert review: {str(exc)}"}), 500
 
 
+@app.route("/api/feedback", methods=["POST"])
+def save_feedback_comment():
+    try:
+        payload = request.get_json(silent=True) or {}
+        comment = str(payload.get("comment") or "").strip()
+        if not comment:
+            return jsonify({"error": "Feedback comment is required."}), 400
+
+        if len(comment) > 2000:
+            return jsonify({"error": "Feedback comment must be 2000 characters or less."}), 400
+
+        now = datetime.now(timezone.utc).isoformat()
+        feedback_row = {
+            "id": str(uuid.uuid4()),
+            "page_path": str(payload.get("page_path") or "").strip()[:500],
+            "state": str(payload.get("state") or "").strip()[:100],
+            "user_name": str(payload.get("user_name") or "").strip()[:200],
+            "comment": comment,
+            "status": "new",
+            "user_agent": str(request.headers.get("User-Agent") or "").strip()[:500],
+            "created_at": now,
+        }
+
+        supabase.table("feedback_comments").insert(feedback_row).execute()
+        return jsonify({"message": "Feedback saved", "id": feedback_row["id"]}), 201
+    except Exception as exc:
+        return jsonify({"error": f"Could not save feedback: {str(exc)}"}), 500
+
+
 @app.route("/api/documents/upload", methods=["POST"])
 def upload_document():
     try:

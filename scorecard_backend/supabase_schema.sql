@@ -241,6 +241,31 @@ create index if not exists idx_expert_review_sessions_lookup
 create index if not exists idx_expert_review_items_session
     on expert_review_items (session_id, subaspect_key);
 
+create table if not exists feedback_comments (
+    id uuid primary key default gen_random_uuid(),
+    page_path text,
+    state text,
+    user_name text,
+    comment text not null,
+    status text not null default 'new',
+    user_agent text,
+    created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table feedback_comments add column if not exists page_path text;
+alter table feedback_comments add column if not exists state text;
+alter table feedback_comments add column if not exists user_name text;
+alter table feedback_comments add column if not exists comment text;
+alter table feedback_comments add column if not exists status text not null default 'new';
+alter table feedback_comments add column if not exists user_agent text;
+alter table feedback_comments add column if not exists created_at timestamptz not null default timezone('utc', now());
+
+create index if not exists idx_feedback_comments_created_at
+    on feedback_comments (created_at desc);
+
+create index if not exists idx_feedback_comments_status
+    on feedback_comments (status, created_at desc);
+
 alter table documents disable row level security;
 alter table deleted_docs disable row level security;
 alter table uploaded_dataset_rows disable row level security;
@@ -249,3 +274,4 @@ alter table survey_update_answers disable row level security;
 alter table pre_survey_submissions disable row level security;
 alter table expert_review_sessions disable row level security;
 alter table expert_review_items disable row level security;
+alter table feedback_comments disable row level security;

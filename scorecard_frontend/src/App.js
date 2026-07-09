@@ -9,6 +9,7 @@ import {
 
 import Sidebar from "./components/Sidebar";
 import Footer from "./components/Footer";
+import FloatingFeedbackPanel from "./components/FloatingFeedbackPanel";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -235,6 +236,8 @@ function AppLayout({ collapsed, onToggleSidebar }) {
 
         {!isLoginPage && <Footer />}
       </div>
+
+      <FloatingFeedbackPanel />
     </div>
   );
 }
