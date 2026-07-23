@@ -10,8 +10,11 @@ const MAP_ZOOM = 4.45;
 export default function StateLoginMap({ onStateClick }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
+  const onStateClickRef = useRef(onStateClick);
   const hoveredFeatureIdRef = useRef(null);
   const [hoveredState, setHoveredState] = useState(null);
+
+  onStateClickRef.current = onStateClick;
 
   useEffect(() => {
     const token = process.env.REACT_APP_MAPBOX_TOKEN;
@@ -118,8 +121,8 @@ export default function StateLoginMap({ onStateClick }) {
 
         map.on("click", "login-state-fills", (event) => {
           const stateName = event.features?.[0]?.properties?.name;
-          if (stateName && onStateClick) {
-            onStateClick(stateName);
+          if (stateName && onStateClickRef.current) {
+            onStateClickRef.current(stateName);
           }
         });
       });
@@ -135,7 +138,7 @@ export default function StateLoginMap({ onStateClick }) {
       }
       hoveredFeatureIdRef.current = null;
     };
-  }, [onStateClick]);
+  }, []);
 
   if (!process.env.REACT_APP_MAPBOX_TOKEN) {
     return (

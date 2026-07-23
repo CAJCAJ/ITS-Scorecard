@@ -1,17 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import {
-  getUsername,
-  saveFeedbackProfile,
-} from "../utils/auth";
+import { saveFeedbackProfile } from "../utils/auth";
 import "./FeedbackProfile.css";
 
 export default function FeedbackProfile() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     agencyCompany: "",
-    username: getUsername(),
+    username: "",
     email: "",
   });
 
@@ -34,7 +31,7 @@ export default function FeedbackProfile() {
         aria-labelledby="feedback-profile-title"
       >
         <div className="feedback-profile-kicker">Feedback Information</div>
-        <h1 id="feedback-profile-title">Tell us who is providing feedback</h1>
+        <h1 id="feedback-profile-title">Please Kindly Provide your information</h1>
         <p>
           This information will remain attached to the feedback form throughout
           your login session and will be cleared when you log out.
@@ -57,7 +54,7 @@ export default function FeedbackProfile() {
             <input
               value={form.username}
               onChange={(event) => updateField("username", event.target.value)}
-              autoComplete="username"
+              autoComplete="off"
               required
             />
           </label>
