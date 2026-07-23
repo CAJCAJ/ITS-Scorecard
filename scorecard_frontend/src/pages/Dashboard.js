@@ -17,9 +17,7 @@ import { getSessionState } from "../utils/auth";
 import DashboardCard from "../components/DashboardCard";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
-const TREND_YEARS = YEAR_OPTIONS;
-const trendCache = new Map();
-const trendRequests = new Map();
+const TREND_YEARS = YEAR_OPTIONS.slice(-12);
 
 const DOMAIN_ROUTES = {
   benefitCost: "/scorecards/benefit-cost-analysis",
@@ -149,30 +147,36 @@ function buildDomainRows(results, loading = false) {
   ];
 }
 
+function calculateDeploymentScore(result) {
+  const coverageScore = asNumber(result?.coverage_score);
+  if (coverageScore !== null) return coverageScore;
+
+  const deploymentItems = deploymentEvidenceItems(result);
+  const deploymentScores = deploymentItems
+    .map((item) => asNumber(item.default_value))
+    .filter((value) => value !== null);
+
+  return deploymentScores.length
+    ? deploymentScores.reduce((sum, value) => sum + value, 0) / deploymentScores.length
+    : null;
+}
+
+function calculateOverallScore(results) {
+  const scores = [
+    asNumber(results.benefitCost?.unified_score),
+    calculateDeploymentScore(results.deployment),
+    asNumber(results.legislation?.unifiedScore),
+    asNumber(results.planning?.unified_score),
+    asNumber(results.facility?.unified_score),
+  ].filter((value) => value !== null);
+
+  return scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
+}
+
 function normalizeDisplayRows(rows) {
   return rows.map((row) =>
     row.source === "No Value Available" ? { ...row, score: null } : row
   );
-}
-
-function requestTrendData(stateName) {
-  if (trendCache.has(stateName)) {
-    return Promise.resolve(trendCache.get(stateName));
-  }
-  if (!trendRequests.has(stateName)) {
-    const trendRequest = axios
-      .get(apiUrl("/dashboard/history"), { params: { state: stateName } })
-      .then((response) => {
-        const rows = Array.isArray(response.data?.rows) ? response.data.rows : [];
-        trendCache.set(stateName, rows);
-        return rows;
-      })
-      .finally(() => {
-        trendRequests.delete(stateName);
-      });
-    trendRequests.set(stateName, trendRequest);
-  }
-  return trendRequests.get(stateName);
 }
 
 export default function Dashboard() {
@@ -275,36 +279,83 @@ export default function Dashboard() {
     };
   }, [stateName, selectedYear]);
 
+  const hasCompleteSummary = Object.keys(results).length === 5 && !loading && !error;
+
   useEffect(() => {
-    if (!stateName) return;
+    if (!stateName || !hasCompleteSummary) return;
 
     let cancelled = false;
-    const cachedRows = trendCache.get(stateName);
-    if (cachedRows) {
-      setTrendData(cachedRows);
-      setTrendLoading(false);
+    const controller = new AbortController();
+
+    async function loadTrend() {
+      setTrendLoading(true);
       setTrendError("");
-      return undefined;
+
+      const rows = [];
+      for (const year of TREND_YEARS) {
+        if (cancelled) return;
+        try {
+          const [benefitCost, deployment, legislation, planning, facility] = await Promise.all([
+            axios.get(apiUrl("/benefit-cost/score"), {
+              params: { state: stateName, year },
+              signal: controller.signal,
+            }),
+            axios.get(apiUrl("/deployment/default-values"), {
+              params: { state: stateName, year },
+              signal: controller.signal,
+            }),
+            axios.get(apiUrl("/legislation/analysis"), {
+              params: { state: stateName, year },
+              signal: controller.signal,
+            }),
+            axios.get(apiUrl("/planning/score"), {
+              params: { state: stateName, year },
+              signal: controller.signal,
+            }),
+            axios.get(apiUrl("/facility/score"), {
+              params: { state: stateName, year },
+              signal: controller.signal,
+            }),
+          ]);
+
+          const yearResults = {
+            benefitCost: benefitCost.data || {},
+            deployment: deployment.data || {},
+            legislation: legislation.data || {},
+            planning: planning.data || {},
+            facility: facility.data || {},
+          };
+          rows.push({
+            year,
+            overall: calculateOverallScore(yearResults),
+            benefitCost: asNumber(yearResults.benefitCost?.unified_score),
+            deployment: calculateDeploymentScore(yearResults.deployment),
+            legislation: asNumber(yearResults.legislation?.unifiedScore),
+            planning: asNumber(yearResults.planning?.unified_score),
+            facility: asNumber(yearResults.facility?.unified_score),
+          });
+        } catch (requestError) {
+          if (isAbortError(requestError)) return;
+          throw requestError;
+        }
+      }
+
+      if (cancelled) return;
+      setTrendData(rows);
+      setTrendLoading(false);
     }
 
-    setTrendLoading(true);
-    setTrendError("");
-    requestTrendData(stateName)
-      .then((rows) => {
-        if (cancelled) return;
-        setTrendData(rows);
-        setTrendLoading(false);
-      })
-      .catch((requestError) => {
-        if (cancelled) return;
-        setTrendError(requestError.message || "Could not load historical trend.");
-        setTrendLoading(false);
-      });
+    loadTrend().catch((requestError) => {
+      if (cancelled) return;
+      setTrendError(requestError.message || "Could not load historical trend.");
+      setTrendLoading(false);
+    });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [stateName]);
+  }, [stateName, hasCompleteSummary]);
 
   const domainRows = useMemo(
     () => normalizeDisplayRows(buildDomainRows(results, loading)),
@@ -408,6 +459,101 @@ export default function Dashboard() {
         </div>
       ) : null}
 
+      <section className="card dashboard-trend-card">
+        <div className="dashboard-section-header">
+          <div>
+            <h3>Historical Score Trend</h3>
+            <p>Overall and domain scores by year for {stateName}</p>
+          </div>
+          <span>{TREND_YEARS[0]}-{TREND_YEARS[TREND_YEARS.length - 1]}</span>
+        </div>
+        {trendError ? (
+          <div className="dashboard-trend-message">{trendError}</div>
+        ) : trendLoading ? (
+          <div className="dashboard-trend-message">Loading historical trend...</div>
+        ) : (
+          <div className="dashboard-trend-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData} margin={{ top: 10, right: 22, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e6ecf3" />
+                <XAxis dataKey="year" tick={{ fill: "#607185", fontSize: 12 }} />
+                <YAxis
+                  domain={[0, 1]}
+                  tick={{ fill: "#607185", fontSize: 12 }}
+                  tickFormatter={(value) => Number(value).toFixed(1)}
+                />
+                <Tooltip
+                  formatter={(value, name) => [formatScore(value), name]}
+                  labelFormatter={(label) => `Year ${label}`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="overall"
+                  name="Overall"
+                  stroke="#111827"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="benefitCost"
+                  name="B/C"
+                  stroke={DOMAIN_COLORS.benefitCost}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="deployment"
+                  name="Deployment"
+                  stroke={DOMAIN_COLORS.deployment}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="legislation"
+                  name="Legislation"
+                  stroke={DOMAIN_COLORS.legislation}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="planning"
+                  name="Planning"
+                  stroke={DOMAIN_COLORS.planning}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="facility"
+                  name="Facility"
+                  stroke={DOMAIN_COLORS.facility}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <div className="dashboard-trend-legend">
+          <span style={{ "--legend-color": "#111827" }}>Overall</span>
+          <span style={{ "--legend-color": DOMAIN_COLORS.benefitCost }}>B/C</span>
+          <span style={{ "--legend-color": DOMAIN_COLORS.deployment }}>Deployment</span>
+          <span style={{ "--legend-color": DOMAIN_COLORS.legislation }}>Legislation</span>
+          <span style={{ "--legend-color": DOMAIN_COLORS.planning }}>Planning</span>
+          <span style={{ "--legend-color": DOMAIN_COLORS.facility }}>Facility</span>
+        </div>
+      </section>
+
       <div className="scorecard-dashboard-grid">
         <section className="card" style={{ padding: "26px", borderRadius: "8px" }}>
           <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>Scorecard Domains</h3>
@@ -489,101 +635,6 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
-
-      <section className="card dashboard-trend-card">
-        <div className="dashboard-section-header">
-          <div>
-            <h3>Historical Score Trend</h3>
-            <p>Overall and domain scores by year for {stateName}</p>
-          </div>
-          <span>{TREND_YEARS[0]}-{TREND_YEARS[TREND_YEARS.length - 1]}</span>
-        </div>
-        {trendError ? (
-          <div className="dashboard-trend-message">{trendError}</div>
-        ) : trendLoading ? (
-          <div className="dashboard-trend-message">Loading historical trend...</div>
-        ) : (
-          <div className="dashboard-trend-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData} margin={{ top: 10, right: 22, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e6ecf3" />
-                <XAxis dataKey="year" tick={{ fill: "#607185", fontSize: 12 }} />
-                <YAxis
-                  domain={[0.5, 1]}
-                  tick={{ fill: "#607185", fontSize: 12 }}
-                  tickFormatter={(value) => Number(value).toFixed(1)}
-                />
-                <Tooltip
-                  formatter={(value, name) => [formatScore(value), name]}
-                  labelFormatter={(label) => `Year ${label}`}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="overall"
-                  name="Overall"
-                  stroke="#111827"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="benefitCost"
-                  name="B/C"
-                  stroke={DOMAIN_COLORS.benefitCost}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="deployment"
-                  name="Deployment"
-                  stroke={DOMAIN_COLORS.deployment}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="legislation"
-                  name="Legislation"
-                  stroke={DOMAIN_COLORS.legislation}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="planning"
-                  name="Planning"
-                  stroke={DOMAIN_COLORS.planning}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="facility"
-                  name="Facility"
-                  stroke={DOMAIN_COLORS.facility}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        <div className="dashboard-trend-legend">
-          <span style={{ "--legend-color": "#111827" }}>Overall</span>
-          <span style={{ "--legend-color": DOMAIN_COLORS.benefitCost }}>B/C</span>
-          <span style={{ "--legend-color": DOMAIN_COLORS.deployment }}>Deployment</span>
-          <span style={{ "--legend-color": DOMAIN_COLORS.legislation }}>Legislation</span>
-          <span style={{ "--legend-color": DOMAIN_COLORS.planning }}>Planning</span>
-          <span style={{ "--legend-color": DOMAIN_COLORS.facility }}>Facility</span>
-        </div>
-      </section>
     </div>
   );
 }

@@ -2,7 +2,6 @@ const AUTH_KEY = "ITS_AUTH";
 const ROLE_KEY = "ITS_ROLE";
 const USER_KEY = "ITS_USER";
 const STATE_KEY = "ITS_STATE";
-const FEEDBACK_PROFILE_KEY = "ITS_FEEDBACK_PROFILE";
 
 export const SUPPORTED_STATES = ["New Jersey", "Texas"];
 
@@ -68,40 +67,6 @@ export const getUsername = () => localStorage.getItem(USER_KEY) || "";
 
 export const getSessionState = () => normalizeStateName(localStorage.getItem(STATE_KEY));
 
-export function getFeedbackProfile() {
-  try {
-    const profile = JSON.parse(localStorage.getItem(FEEDBACK_PROFILE_KEY) || "{}");
-    return {
-      agencyCompany: String(profile.agencyCompany || "").trim(),
-      username: String(profile.username || "").trim(),
-      email: String(profile.email || "").trim(),
-    };
-  } catch {
-    return { agencyCompany: "", username: "", email: "" };
-  }
-}
-
-export const hasFeedbackProfile = () => {
-  const profile = getFeedbackProfile();
-  return Boolean(profile.agencyCompany && profile.username && profile.email);
-};
-
-export function saveFeedbackProfile(profile) {
-  const normalized = {
-    agencyCompany: String(profile?.agencyCompany || "").trim(),
-    username: String(profile?.username || "").trim(),
-    email: String(profile?.email || "").trim(),
-  };
-  if (!normalized.agencyCompany || !normalized.username || !normalized.email) {
-    return false;
-  }
-  localStorage.setItem(FEEDBACK_PROFILE_KEY, JSON.stringify(normalized));
-  return true;
-}
-
-export const getPostLoginPath = () =>
-  hasFeedbackProfile() ? "/dashboard" : "/feedback-profile";
-
 export function getAccount(username) {
   return USER_ACCOUNTS[String(username || "").trim().toLowerCase()] || null;
 }
@@ -150,5 +115,4 @@ export const logout = () => {
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(STATE_KEY);
-  localStorage.removeItem(FEEDBACK_PROFILE_KEY);
 };

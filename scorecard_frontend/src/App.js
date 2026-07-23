@@ -9,11 +9,9 @@ import {
 
 import Sidebar from "./components/Sidebar";
 import Footer from "./components/Footer";
-import FeedbackBlockAnnotator from "./components/FeedbackBlockAnnotator";
 import FloatingFeedbackPanel from "./components/FloatingFeedbackPanel";
 
 import Login from "./pages/Login";
-import FeedbackProfile from "./pages/FeedbackProfile";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -33,50 +31,31 @@ import ExpertPanelReview from "./pages/ExpertPanelReview";
 import DeploymentPreSurvey from "./pages/DeploymentPreSurvey";
 
 import { DashboardProvider } from "./context/DashboardContext";
-import {
-  getPostLoginPath,
-  getRole,
-  hasFeedbackProfile,
-  isAuthed,
-} from "./utils/auth";
+import { isAuthed, getRole } from "./utils/auth";
 
 import "./styles/global.css";
 
 function ProtectedRoute({ children }) {
-  if (!isAuthed()) return <Navigate to="/login" replace />;
-  return hasFeedbackProfile()
-    ? children
-    : <Navigate to="/feedback-profile" replace />;
+  return isAuthed() ? children : <Navigate to="/login" replace />;
 }
 
 function AdminRoute({ children }) {
-  if (!isAuthed()) return <Navigate to="/login" replace />;
-  if (!hasFeedbackProfile()) {
-    return <Navigate to="/feedback-profile" replace />;
-  }
-  return getRole() === "admin" ? children : <Navigate to="/home" replace />;
-}
-
-function FeedbackProfileRoute() {
-  if (!isAuthed()) return <Navigate to="/login" replace />;
-  return hasFeedbackProfile()
-    ? <Navigate to="/dashboard" replace />
-    : <FeedbackProfile />;
+  return isAuthed() && getRole() === "admin"
+    ? children
+    : <Navigate to="/home" replace />;
 }
 
 function AppLayout({ collapsed, onToggleSidebar }) {
   const location = useLocation();
   const isLoginPage = location.pathname === "/login";
-  const isFeedbackProfilePage = location.pathname === "/feedback-profile";
-  const isEntryPage = isLoginPage || isFeedbackProfilePage;
 
   return (
     <div
       className={`app-container ${collapsed ? "collapsed" : ""} ${
-        isEntryPage ? "login-mode" : ""
+        isLoginPage ? "login-mode" : ""
       }`}
     >
-      {!isEntryPage && (
+      {!isLoginPage && (
         <Sidebar collapsed={collapsed} onToggle={onToggleSidebar} />
       )}
 
@@ -84,20 +63,14 @@ function AppLayout({ collapsed, onToggleSidebar }) {
         <Routes>
           <Route
             path="/login"
-            element={
-              isAuthed()
-                ? <Navigate to={getPostLoginPath()} replace />
-                : <Login />
-            }
+            element={isAuthed() ? <Navigate to="/dashboard" replace /> : <Login />}
           />
-
-          <Route path="/feedback-profile" element={<FeedbackProfileRoute />} />
 
           <Route
             path="/"
             element={
               isAuthed() ? (
-                <Navigate to={getPostLoginPath()} replace />
+                <Navigate to="/dashboard" replace />
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -261,15 +234,10 @@ function AppLayout({ collapsed, onToggleSidebar }) {
           />
         </Routes>
 
-        {!isEntryPage && <Footer />}
+        {!isLoginPage && <Footer />}
       </div>
 
-      {!isEntryPage && isAuthed() && hasFeedbackProfile() ? (
-        <>
-          <FeedbackBlockAnnotator />
-          <FloatingFeedbackPanel />
-        </>
-      ) : null}
+      <FloatingFeedbackPanel />
     </div>
   );
 }
