@@ -22,10 +22,19 @@ venv/
 
 # Build output
 build/
+output/
 .codex-logs/
+.codex-run/
+.tmp-*/
+tmp/
 backend_run*.log
 frontend_run*.log
 scorecard_backend/supabase_keepalive*.log
+
+# Local reference-document copies kept outside the application repository
+/ITS Scorecard Technical Report Reference.pdf
+/ITSNJ_Expert_Survey_Questions.md
+/V20260409_ITS Scorecard Technical Report.docx
 
 # Vercel
 .vercel/
