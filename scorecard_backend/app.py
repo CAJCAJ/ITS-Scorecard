@@ -3,6 +3,7 @@ import io
 import json
 import math
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -610,6 +611,9 @@ def get_deployment_default_values():
         result = compute_deployment_coverage_for_year(
             survey_documents, uploaded_rows, state_name
         )
+        result["source_documents"] = [
+            format_document_record(document) for document in survey_documents
+        ]
         if not result.get("items"):
             return jsonify({"items": [], "message": f"No Data Found for Year {survey_year}"}), 200
 
@@ -1265,6 +1269,405 @@ def planning_record_to_answers(record):
     }
 
 
+def get_award_name(record):
+    return get_record_value(record, "Award Name", "award_name", "award_title", "Award Title")
+
+
+def get_award_program(record):
+    return get_record_value(record, "award_program", "Award Program", "program", "Program")
+
+
+def get_award_amount(record):
+    return get_record_value(record, "award_amount", "Award Amount", "amount", "Amount")
+
+
+def get_award_recipient(record):
+    return get_record_value(
+        record,
+        "award_recipient",
+        "Award Recipient",
+        "award_agency",
+        "Award Agency",
+        "recipient",
+        "Recipient",
+    )
+
+
+def get_award_project(record):
+    return get_record_value(
+        record,
+        "award_project",
+        "Award Project",
+        "project_title",
+        "Project Title",
+        "project",
+        "Project",
+    )
+
+
+def is_planning_baseline_record(record):
+    record_type = str(get_record_value(record, "record_type", "Record Type") or "").lower()
+    return record_type == "planning_baseline"
+
+
+def is_planning_award_record(record):
+    if is_planning_baseline_record(record):
+        return False
+    record_type = str(get_record_value(record, "record_type", "Record Type") or "").lower()
+    if record_type == "award":
+        return True
+    return bool(get_award_name(record) or get_award_program(record) or parse_money_value(get_award_amount(record)) > 0)
+
+
+def max_numeric_record_value(records, *keys):
+    values = [parse_money_value(get_record_value(record, *keys)) for record in records]
+    return max(values) if values else 0.0
+
+
+def aggregate_planning_award_records(records):
+    award_rows = [record for record in records if is_planning_award_record(record)]
+    programs = []
+    recipients = []
+    projects = []
+    source_values = []
+    source_notes = []
+    evidence_levels = []
+    total_funding = 0.0
+
+    for record in award_rows:
+        program = str(get_award_program(record) or "").strip()
+        recipient = str(get_award_recipient(record) or "").strip()
+        project = str(get_award_project(record) or get_award_name(record) or "").strip()
+        source_url = get_record_value(record, "source_url", "Source URL", "source_urls", "Source URLs")
+        note = get_record_value(record, "source_notes", "Source Notes")
+        evidence = get_record_value(record, "evidence_level", "Evidence Level")
+
+        if program and program not in programs:
+            programs.append(program)
+        if recipient and recipient not in recipients:
+            recipients.append(recipient)
+        if project and project not in projects:
+            projects.append(project)
+        if source_url:
+            source_values.append(source_url)
+        if note:
+            source_notes.append(note)
+        if evidence and evidence not in evidence_levels:
+            evidence_levels.append(evidence)
+        total_funding += parse_money_value(get_award_amount(record))
+
+    merged = {}
+    if records:
+        merged.update(records[0])
+    merged["dataset_version"] = get_record_value(
+        merged, "dataset_version", "Dataset Version"
+    ) or "Planning_Analysis_Default"
+    merged["plan_award_count"] = len(award_rows)
+    merged["plan_award_programs"] = "; ".join(programs)
+    merged["plan_award_funding"] = round(total_funding, 2)
+    merged["award_recipients"] = "; ".join(recipients)
+    merged["award_projects"] = "; ".join(projects)
+    merged["plan_doc_count"] = max_numeric_record_value(records, "plan_doc_count", "Plan Doc Count")
+    merged["plan_corridor_miles"] = max_numeric_record_value(
+        records, "plan_corridor_miles", "Plan Corridor Miles"
+    )
+    merged["plan_doc_sources"] = combine_planning_metadata(
+        None,
+        [
+            get_record_value(record, "plan_doc_sources", "Plan Doc Sources")
+            for record in records
+            if get_record_value(record, "plan_doc_sources", "Plan Doc Sources")
+        ],
+    )
+    merged["source_notes"] = combine_planning_metadata(None, source_notes)
+    merged["source_urls"] = combine_planning_metadata(None, source_values)
+    merged["evidence_level"] = "; ".join(evidence_levels) or get_record_value(
+        merged, "evidence_level", "Evidence Level"
+    )
+    merged["_planning_award_rows"] = award_rows
+    return merged
+
+
+def parse_money_value(value):
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+    cleaned = re.sub(r"[^0-9.\-]", "", text.replace(",", ""))
+    try:
+        return float(cleaned) if cleaned else 0.0
+    except ValueError:
+        return 0.0
+
+
+def infer_funding_level(program, source_notes):
+    text = f"{program or ''} {source_notes or ''}".lower()
+    if any(token in text for token in ("fhwa", "usdot", "federal", "smart", "atcmtd", "attain", "ss4a")):
+        return "Federal"
+    if any(token in text for token in ("state", "njdot", "department of transportation")):
+        return "State"
+    if any(token in text for token in ("local", "county", "municipal", "city", "township", "borough")):
+        return "Local"
+    return "Unspecified"
+
+
+def infer_award_duration(record, program):
+    for key in ("award_duration", "Award Duration", "duration", "Duration"):
+        value = get_record_value(record, key)
+        if value:
+            return simplify_award_duration(value)
+
+    program_text = str(program or "").upper()
+    if program_text in {"SMART", "SS4A"}:
+        return "1 year"
+    if program_text in {"ATCMTD", "ATTAIN"}:
+        return "multi-year"
+    return "Not specified"
+
+
+def simplify_award_duration(value):
+    text = str(value or "").strip()
+    if not text:
+        return "Not specified"
+    month_match = re.search(r"(\d+(?:\.\d+)?)\s*months?", text, re.IGNORECASE)
+    if month_match:
+        amount = month_match.group(1)
+        unit = "month" if amount == "1" else "months"
+        return f"{amount} {unit}"
+    year_match = re.search(r"(\d+(?:\.\d+)?)\s*years?", text, re.IGNORECASE)
+    if year_match:
+        amount = year_match.group(1)
+        unit = "year" if amount == "1" else "years"
+        return f"{amount} {unit}"
+    if "multi" in text.lower():
+        return "multi-year"
+    return text.split(",")[0].split("-")[0].strip() or "Not specified"
+
+
+def duration_score(duration):
+    text = str(duration or "").lower()
+    number_match = re.search(r"(\d+(?:\.\d+)?)", text)
+    if number_match:
+        years = float(number_match.group(1))
+        return min(1.0, years / 5.0)
+    if "multi" in text or "deployment" in text:
+        return 0.7
+    if "planning" in text or "demo" in text or "1 year" in text:
+        return 0.3
+    return 0.2
+
+
+def funding_level_score(level):
+    normalized = str(level or "").strip().lower()
+    if normalized == "federal":
+        return 1.0
+    if normalized == "state":
+        return 0.7
+    if normalized == "local":
+        return 0.45
+    return 0.35
+
+
+def amount_score(amount):
+    value = max(0.0, float(amount or 0.0))
+    if value <= 0:
+        return 0.0
+    return min(1.0, math.log1p(value) / math.log1p(25_000_000))
+
+
+def award_contribution_score(level, amount, duration):
+    score = (
+        0.45 * funding_level_score(level)
+        + 0.40 * amount_score(amount)
+        + 0.15 * duration_score(duration)
+    )
+    return round(min(1.0, max(0.0, score)), 6)
+
+
+def planning_award_score_total(record):
+    try:
+        result = compute_planning_score(planning_record_to_answers(record))
+        return float(result.get("award_score") or 0.0)
+    except Exception:
+        return 0.0
+
+
+def normalize_award_detail_contributions(details, target_total):
+    if not details:
+        return details
+    target_total = round(max(0.0, float(target_total or 0.0)), 6)
+    raw_total = sum(float(detail.get("_raw_contribution_weight") or 0.0) for detail in details)
+    if raw_total <= 0 or target_total <= 0:
+        for detail in details:
+            detail["unified_score_contribution"] = 0.0
+            detail.pop("_raw_contribution_weight", None)
+        return details
+
+    running_total = 0.0
+    for index, detail in enumerate(details):
+        raw_weight = float(detail.get("_raw_contribution_weight") or 0.0)
+        if index == len(details) - 1:
+            contribution = round(max(0.0, target_total - running_total), 6)
+        else:
+            contribution = round(target_total * raw_weight / raw_total, 6)
+            running_total = round(running_total + contribution, 6)
+        detail["unified_score_contribution"] = contribution
+        detail.pop("_raw_contribution_weight", None)
+    return details
+
+
+def split_equal_length_parts(value, fallback_count=1):
+    parts = split_semicolon_values(value)
+    if parts:
+        return parts
+    return [""] * max(1, int(fallback_count or 1))
+
+
+def build_planning_award_details(record):
+    award_rows = record.get("_planning_award_rows") if isinstance(record, dict) else None
+    if award_rows:
+        details = []
+        for award_record in award_rows:
+            program = get_award_program(award_record)
+            amount = parse_money_value(get_award_amount(award_record))
+            level = get_record_value(
+                award_record, "funding_level", "Funding Level"
+            ) or infer_funding_level(program, get_record_value(award_record, "source_notes", "Source Notes"))
+            duration = infer_award_duration(award_record, program)
+            title = get_award_name(award_record) or get_award_project(award_record)
+            recipient = get_award_recipient(award_record)
+            details.append(
+                {
+                    "funding_name": str(program or "").strip() or "Award Funding",
+                    "awarded_project": program_funding_title(program, title),
+                    "awarded_agency": program_award_agency(program, recipient),
+                    "funding_level": level,
+                    "amount": round(amount, 2),
+                    "duration": duration,
+                    "_raw_contribution_weight": award_contribution_score(
+                        level, amount, duration
+                    ),
+                }
+            )
+        return normalize_award_detail_contributions(
+            details, planning_award_score_total(record)
+        )
+
+    award_count = int(parse_money_value(get_record_value(record, "plan_award_count", "Plan Award Count")) or 0)
+    if award_count <= 0:
+        return []
+    total_funding = parse_money_value(
+        get_record_value(record, "plan_award_funding", "Plan Award Funding")
+    )
+    programs = split_equal_length_parts(
+        get_record_value(record, "plan_award_programs", "Plan Award Programs"),
+        award_count,
+    )
+    recipients = split_equal_length_parts(
+        get_record_value(record, "award_recipients", "Award Recipients"),
+        len(programs),
+    )
+    projects = split_equal_length_parts(
+        get_record_value(record, "award_projects", "Award Projects"),
+        len(programs),
+    )
+    source_notes = get_record_value(record, "source_notes", "Source Notes")
+    program_amounts = parse_program_amounts(source_notes)
+
+    detail_count = max(len(programs), len(recipients), len(projects), 1 if award_count else 0)
+    if detail_count == 0:
+        return []
+
+    amount_per_detail = total_funding / detail_count if detail_count else 0.0
+    details = []
+    for index in range(detail_count):
+        program = programs[index] if index < len(programs) else programs[-1]
+        recipient = recipients[index] if index < len(recipients) else recipients[-1]
+        project = projects[index] if index < len(projects) else projects[-1]
+        level = infer_funding_level(program, source_notes)
+        duration = infer_award_duration(record, program)
+        amount = program_amounts.get(str(program or "").upper(), amount_per_detail)
+        details.append(
+            {
+                "funding_name": str(program or "").strip() or "Award Funding",
+                "awarded_project": program_funding_title(program, project),
+                "awarded_agency": program_award_agency(program, recipient),
+                "funding_level": level,
+                "amount": round(amount, 2),
+                "duration": duration,
+                "_raw_contribution_weight": award_contribution_score(
+                    level, amount, duration
+                ),
+            }
+        )
+    return normalize_award_detail_contributions(details, planning_award_score_total(record))
+
+
+def find_reference_planning_award_record(state_name, survey_year):
+    reference_path = os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "planning_awards_2000_2023_official.csv",
+        )
+    )
+    if not os.path.exists(reference_path):
+        return None
+    try:
+        df = pd.read_csv(reference_path).fillna("")
+    except Exception:
+        return None
+
+    state_key = str(state_name or "").strip().lower()
+    year_key = str(survey_year or "").strip()
+    matches = df[
+        (df["state"].astype(str).str.strip().str.lower() == state_key)
+        & (df["survey_year"].astype(str).str.strip() == year_key)
+    ]
+    if matches.empty:
+        return None
+    return matches.iloc[0].to_dict()
+
+
+def parse_program_amounts(source_notes):
+    text = str(source_notes or "")
+    amounts = {}
+    for program in ("SMART", "SS4A", "ATCMTD", "ATTAIN"):
+        segment_match = re.search(rf"{program}[^.;]*", text, re.IGNORECASE)
+        segment = segment_match.group(0) if segment_match else ""
+        match = (
+            re.search(r"totaling\s+\$?([0-9][0-9,]*(?:\.\d+)?)", segment, re.IGNORECASE)
+            or re.search(r"\$([0-9][0-9,]*(?:\.\d+)?)", segment)
+            or re.search(r"at\s+\$?([0-9][0-9,]*(?:\.\d+)?)", segment, re.IGNORECASE)
+        )
+        if match:
+            amounts[program] = parse_money_value(match.group(1))
+    return amounts
+
+
+def program_award_agency(program, recipient):
+    if recipient and str(recipient).strip():
+        return str(recipient).strip()
+    program_text = str(program or "").upper()
+    if program_text in {"SMART", "SS4A"}:
+        return "USDOT"
+    if program_text in {"ATCMTD", "ATTAIN"}:
+        return "FHWA"
+    return "Not specified"
+
+
+def program_funding_title(program, project):
+    if project and str(project).strip():
+        return str(project).strip()
+    program_text = str(program or "").upper()
+    labels = {
+        "SMART": "SMART Grant",
+        "SS4A": "Safe Streets and Roads for All",
+        "ATCMTD": "Advanced Transportation and Congestion Management Technologies Deployment",
+        "ATTAIN": "Advanced Transportation Technologies and Innovative Mobility Deployment",
+    }
+    return labels.get(program_text, str(program or "Award funding").strip())
+
+
 def facility_record_to_answers(record):
     return {
         "fac_toc_count": get_record_value(record, "fac_toc_count", "Facility TOC Count"),
@@ -1351,11 +1754,41 @@ def find_matching_records_by_doc_type(doc_type, state_name, survey_year):
                 == str(survey_year).strip()
             ):
                 matches.append((row, document))
-                break
+                if doc_type != "planning":
+                    break
     return matches
 
 
 def merge_planning_records(matches):
+    award_level_matches = [
+        (record, document)
+        for record, document in matches
+        if is_planning_award_record(record) or is_planning_baseline_record(record)
+    ]
+    if award_level_matches:
+        latest_document_id = None
+        for record, document in award_level_matches:
+            document_id = document.get("id") if document else None
+            if document_id:
+                latest_document_id = document_id
+                break
+
+        selected_matches = [
+            (record, document)
+            for record, document in award_level_matches
+            if not latest_document_id or (document and document.get("id") == latest_document_id)
+        ]
+        selected_records = [record for record, _document in selected_matches]
+        merged = aggregate_planning_award_records(selected_records)
+        merged["_merged_document_ids"] = list(
+            dict.fromkeys(
+                document.get("id")
+                for _record, document in selected_matches
+                if document and document.get("id")
+            )
+        )
+        return merged
+
     merged = {}
     document_ids = []
     for record, document in reversed(matches):
@@ -1416,6 +1849,21 @@ def get_planning_score():
             result["source_notes"] = get_record_value(planning_record, "source_notes", "Source Notes")
             result["document_id"] = document.get("id") if document else None
             result["document_ids"] = planning_record.get("_merged_document_ids") or []
+            award_reference = (
+                None
+                if planning_record.get("_planning_award_rows")
+                else find_reference_planning_award_record(state_name, survey_year)
+            )
+            award_detail_record = (
+                award_reference
+                if award_reference
+                and parse_money_value(
+                    get_record_value(award_reference, "plan_award_count", "Plan Award Count")
+                )
+                > 0
+                else planning_record
+            )
+            result["award_details"] = build_planning_award_details(award_detail_record)
             return jsonify(result)
 
         submission, answers = fetch_latest_survey_update(
@@ -1705,6 +2153,35 @@ def save_expert_review_session():
         )
     except Exception as exc:
         return jsonify({"error": f"Could not save expert review: {str(exc)}"}), 500
+
+
+@app.route("/api/feedback", methods=["POST"])
+def save_feedback_comment():
+    try:
+        payload = request.get_json(silent=True) or {}
+        comment = str(payload.get("comment") or "").strip()
+        if not comment:
+            return jsonify({"error": "Feedback comment is required."}), 400
+
+        if len(comment) > 2000:
+            return jsonify({"error": "Feedback comment must be 2000 characters or less."}), 400
+
+        now = datetime.now(timezone.utc).isoformat()
+        feedback_row = {
+            "id": str(uuid.uuid4()),
+            "page_path": str(payload.get("page_path") or "").strip()[:500],
+            "state": str(payload.get("state") or "").strip()[:100],
+            "user_name": str(payload.get("user_name") or "").strip()[:200],
+            "comment": comment,
+            "status": "new",
+            "user_agent": str(request.headers.get("User-Agent") or "").strip()[:500],
+            "created_at": now,
+        }
+
+        supabase.table("feedback_comments").insert(feedback_row).execute()
+        return jsonify({"message": "Feedback saved", "id": feedback_row["id"]}), 201
+    except Exception as exc:
+        return jsonify({"error": f"Could not save feedback: {str(exc)}"}), 500
 
 
 @app.route("/api/documents/upload", methods=["POST"])

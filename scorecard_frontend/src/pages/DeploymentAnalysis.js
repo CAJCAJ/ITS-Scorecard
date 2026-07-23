@@ -37,6 +37,37 @@ const PIE_COLORS = [
   "#265f97",
 ];
 
+const DOMAIN_EXPLANATIONS = {
+  "Active Traffic and Demand Management":
+    "Uses survey responses about active traffic management, demand management, ramp or lane controls, and operational strategies. Higher scores reflect more deployed or active capabilities reported by agencies.",
+  "Connected, Automated, and Emerging Vehicle Technology":
+    "Uses survey responses about connected vehicle, automated vehicle, roadside unit, V2X, and emerging technology deployments. Positive deployment or higher coverage responses increase the score.",
+  "ITS Program Planning and Operational Support":
+    "Uses survey responses about ITS planning, operations support, coordination, staffing, procedures, and program-level readiness. Agencies with active planning and support functions contribute higher values.",
+  "Road Weather Information and Response":
+    "Uses survey responses about road weather sensors, weather-responsive operations, warning systems, and maintenance response tools. Deployed systems and broader coverage increase the category score.",
+  "Safety Enforcement and Incident Response":
+    "Uses survey responses about incident detection, emergency response, enforcement support, preemption, safety warning, and response coordination technologies. Positive deployment answers raise the score.",
+  "Signal Management and Intersection Control":
+    "Uses survey responses about signal systems, adaptive control, detection, preemption, priority, timing, and intersection management. More deployed signal-related capabilities lead to a higher score.",
+  "Traffic Monitoring and Data Collection":
+    "Uses survey responses about detectors, sensors, cameras, traffic counts, data collection systems, and monitoring coverage. Positive responses and higher deployment extent increase the score.",
+  "Transit and Fleet ITS Technology":
+    "Uses survey responses about transit management, fleet tracking, vehicle technology, traveler information for transit, and fleet operations tools. Deployed transit or fleet ITS capabilities increase the score.",
+  "Traveler Information and User Services":
+    "Uses survey responses about traveler information, alerts, websites, apps, dynamic signs, data feeds, and public-facing user services. More active information services increase the score.",
+  "Vulnerable Road User Safety Applications":
+    "Uses survey responses about pedestrian, bicyclist, and vulnerable road user detection, warning, safety, and crossing-support technologies. Positive safety application responses increase the score.",
+  "Work Zone ITS and Queue Warning":
+    "Uses survey responses about work zone traffic management, queue warning, temporary sensors, portable signs, and construction-area information systems. Deployed systems increase the score.",
+};
+
+function shortQuestionLabel(item) {
+  const raw = String(item.question || item.answer_variable || "Survey item").trim();
+  if (raw.length <= 72) return raw;
+  return `${raw.slice(0, 69)}...`;
+}
+
 function renderPiePercentage({
   cx,
   cy,
@@ -71,6 +102,7 @@ export default function DeploymentAnalysis() {
   const [selectedMode, setSelectedMode] = useState("AM");
   const [items, setItems] = useState([]);
   const [agencyWeights, setAgencyWeights] = useState([]);
+  const [sourceDocuments, setSourceDocuments] = useState([]);
   const [coverageScore, setCoverageScore] = useState(null);
   const [modeScores, setModeScores] = useState([]);
   const [message, setMessage] = useState("");
@@ -92,6 +124,7 @@ export default function DeploymentAnalysis() {
         if (cancelled) return;
         setItems(response.data.items || []);
         setAgencyWeights(response.data.agency_weights || []);
+        setSourceDocuments(response.data.source_documents || []);
         setCoverageScore(response.data.coverage_score ?? null);
         setModeScores(response.data.mode_scores || []);
         setMessage(response.data.message || "");
@@ -99,11 +132,12 @@ export default function DeploymentAnalysis() {
         if (cancelled) return;
         setItems([]);
         setAgencyWeights([]);
+        setSourceDocuments([]);
         setCoverageScore(null);
         setModeScores([]);
         setMessage(
           error.response?.data?.error ||
-            "Could not load deployment default values."
+            "Could not load deployment coverage results."
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -117,7 +151,7 @@ export default function DeploymentAnalysis() {
   }, [selectedYear, selectedState]);
 
   const heading = useMemo(
-    () => `Default Values for ${selectedState} (${selectedYear})`,
+    () => `Coverage Analysis Results for ${selectedState} (${selectedYear})`,
     [selectedState, selectedYear]
   );
 
@@ -260,32 +294,77 @@ export default function DeploymentAnalysis() {
           )}
 
           {loading ? (
-            <p>Loading default values...</p>
+            <p>Loading coverage analysis results...</p>
           ) : items.length === 0 ? (
             <p>{message || `No Data Found for Year ${selectedYear}`}</p>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table
-                className="preview-table"
-                style={{ minWidth: "760px", tableLayout: "auto" }}
-              >
+            <div className="deployment-table-wrap">
+              <table className="deployment-coverage-table">
                 <colgroup>
-                  <col style={{ width: "480px" }} />
-                  <col style={{ width: "150px" }} />
-                  <col style={{ width: "170px" }} />
+                  <col style={{ width: "64%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "18%" }} />
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Category</th>
-                    <th>Category Strength</th>
+                    <th>ITS Technology</th>
+                    <th>Coverage Score</th>
                     <th>Positive Agencies</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => (
                     <tr key={item.domain_name}>
-                      <td className="kw-cell" style={{ whiteSpace: "nowrap" }}>
-                        {item.domain_name}
+                      <td className="deployment-technology-cell">
+                        <span className="deployment-technology-name">
+                          {item.domain_name}
+                        </span>
+                        <div className="deployment-category-tooltip">
+                          <h4>{item.domain_name}</h4>
+                          <p>
+                            {DOMAIN_EXPLANATIONS[item.domain_name] ||
+                              "Uses mapped ITS Deployment Survey questions for this category. Positive deployment, active use, or broader coverage responses increase the coverage score."}
+                          </p>
+                          <p>
+                            The score summarizes positive deployment evidence
+                            across agencies for this technology area and is
+                            weighted by agency scale where available.
+                          </p>
+                          <div className="deployment-tooltip-bars">
+                            <strong>Top survey items</strong>
+                            {(item.top_items || []).length === 0 ? (
+                              <span className="deployment-tooltip-empty">
+                                No item detail available.
+                              </span>
+                            ) : (
+                              item.top_items.map((detail, detailIndex) => {
+                                const positiveRate = Number(
+                                  detail.positive_rate || 0
+                                );
+                                const barWidth = `${Math.max(
+                                  4,
+                                  Math.min(100, positiveRate * 100)
+                                )}%`;
+                                return (
+                                  <div
+                                    className="deployment-tooltip-bar-row"
+                                    key={`${detail.answer_variable}-${detail.question_id}-${detailIndex}`}
+                                  >
+                                    <div className="deployment-tooltip-bar-label">
+                                      {shortQuestionLabel(detail)}
+                                    </div>
+                                    <div className="deployment-tooltip-bar-track">
+                                      <span style={{ width: barWidth }} />
+                                    </div>
+                                    <div className="deployment-tooltip-bar-value">
+                                      {Number(positiveRate * 100).toFixed(0)}%
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td>{Number(item.default_value).toFixed(3)}</td>
                       <td>
@@ -305,28 +384,25 @@ export default function DeploymentAnalysis() {
 
         <section className="card" style={{ padding: "24px" }}>
           <div className="deployment-agency-heading">
-            <h3>Agency Weights</h3>
+            <h3>Agency Scores</h3>
             <span>{MODE_LABELS[selectedMode] || selectedMode}</span>
           </div>
           {loading ? (
-            <p>Loading agency weights...</p>
+            <p>Loading agency scores...</p>
           ) : agencyRows.length === 0 ? (
-            <p>{message || `No agency weights found for ${selectedYear}`}</p>
+            <p>{message || `No agency scores found for ${selectedYear}`}</p>
           ) : (
-            <div style={{ overflowX: "auto", maxHeight: "640px" }}>
-              <table
-                className="preview-table"
-                style={{ minWidth: "420px", tableLayout: "auto" }}
-              >
+            <div className="deployment-agency-table-wrap">
+              <table className="deployment-agency-table">
                 <colgroup>
-                  <col style={{ width: "260px" }} />
-                  <col style={{ width: "110px" }} />
-                  <col style={{ width: "130px" }} />
+                  <col style={{ width: "56%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "24%" }} />
                 </colgroup>
                 <thead>
                   <tr>
                     <th>Agency</th>
-                    <th>Agency Weight</th>
+                    <th>Agency Score</th>
                     <th>Contribution</th>
                   </tr>
                 </thead>
@@ -435,6 +511,47 @@ export default function DeploymentAnalysis() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+      </section>
+
+      <section className="card deployment-source-card">
+        <h3>Score Based on Following Data Resource ({selectedYear})</h3>
+        {loading ? (
+          <p>Loading uploaded source tables...</p>
+        ) : sourceDocuments.length === 0 ? (
+          <p>No uploaded deployment survey tables found for {selectedYear}.</p>
+        ) : (
+          <div className="deployment-table-wrap">
+            <table className="deployment-source-table">
+              <colgroup>
+                <col style={{ width: "36%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "14%" }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Table Name</th>
+                  <th>Category</th>
+                  <th>Survey Type</th>
+                  <th>Scope</th>
+                  <th>Rows</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sourceDocuments.map((document) => (
+                  <tr key={document.id}>
+                    <td>{document.table_name || document.original_name}</td>
+                    <td>{document.category || "ITS Deployment Coverage Data"}</td>
+                    <td>{document.agency_type || "N/A"}</td>
+                    <td>{document.survey_scope || "N/A"}</td>
+                    <td>{Number(document.row_count || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

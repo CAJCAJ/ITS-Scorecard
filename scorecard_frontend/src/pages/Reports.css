@@ -1,0 +1,73 @@
+.legislation-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.legislation-year-chart-card {
+  grid-column: 1 / -1;
+}
+
+.legislation-year-chart-card .chart-wrapper {
+  height: 360px;
+}
+
+.legislation-table-wrap {
+  width: 100%;
+  max-width: 100%;
+}
+
+.legislation-bill-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.legislation-bill-table th,
+.legislation-bill-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #e6edf5;
+  color: #172033;
+  font-size: 0.95rem;
+  line-height: 1.28;
+  vertical-align: middle;
+}
+
+.legislation-bill-table th {
+  color: #7a8aa0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.legislation-bill-table td {
+  overflow-wrap: anywhere;
+}
+
+.legislation-bill-table td:nth-child(2),
+.legislation-bill-table td:nth-child(5) {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.legislation-bill-name div {
+  color: #0f2742;
+  font-weight: 700;
+}
+
+.legislation-bill-name span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.86rem;
+  line-height: 1.24;
+}
+
+@media (max-width: 1100px) {
+  .legislation-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}

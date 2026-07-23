@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import USHeatMap from "../components/USHeatMap";
+import StateLoginMap from "../components/StateLoginMap";
 import { isAuthed, login as authenticate } from "../utils/auth";
 
 export default function Login() {
@@ -43,16 +43,11 @@ export default function Login() {
   return (
     <div className="map-entry-page">
       <div className="map-entry-header">
-        <h1>ITS Scorecard</h1>
-        <p>Select New Jersey or Texas on the map to sign in.</p>
+        <div className="map-entry-title-main">ITS Scorecard</div>
+        <div className="map-entry-title-subtitle">Please Select Your State</div>
       </div>
 
-      <USHeatMap
-        title=""
-        subtitle=""
-        showHoverModal={false}
-        onStateClick={handleStateClick}
-      />
+      <StateLoginMap onStateClick={handleStateClick} />
 
       {selectedState && (
         <div className="state-login-overlay" role="dialog" aria-modal="true">

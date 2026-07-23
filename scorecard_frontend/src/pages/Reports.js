@@ -16,6 +16,7 @@ import {
 import DashboardCard from "../components/DashboardCard";
 import { apiUrl } from "../services/api";
 import { getSessionState } from "../utils/auth";
+import "./Reports.css";
 
 ChartJS.register(
   CategoryScale,
@@ -147,18 +148,8 @@ export default function Reports() {
     () =>
       buildLineData(
         analysis?.yearlyCounts || [],
-        "Bills proposed",
+        "Bills enacted",
         "#0057ff"
-      ),
-    [analysis]
-  );
-
-  const enactedChartData = useMemo(
-    () =>
-      buildBarData(
-        analysis?.enactedCounts || [],
-        "Bill count",
-        "#10b981"
       ),
     [analysis]
   );
@@ -255,18 +246,11 @@ export default function Reports() {
             />
           </div>
 
-          <div className="charts-grid">
-            <div className="card">
-              <h3 className="chart-title">Bills Proposed by Year</h3>
+          <div className="legislation-charts-grid">
+            <div className="card legislation-year-chart-card">
+              <h3 className="chart-title">Bills Enacted by Year</h3>
               <div className="chart-wrapper line">
                 <Line data={yearlyChartData} options={chartOptions} />
-              </div>
-            </div>
-
-            <div className="card">
-              <h3 className="chart-title">Enacted vs Not Enacted</h3>
-              <div className="chart-wrapper bar">
-                <Bar data={enactedChartData} options={chartOptions} />
               </div>
             </div>
 
@@ -300,8 +284,16 @@ export default function Reports() {
             <h3 style={{ marginTop: 0 }}>
               Enacted Bill Scores for {selectedState} Through {selectedYear}
             </h3>
-            <div style={{ overflowX: "auto" }}>
-              <table className="preview-table" style={{ minWidth: "1120px" }}>
+            <div className="legislation-table-wrap">
+              <table className="legislation-bill-table">
+                <colgroup>
+                  <col style={{ width: "34%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "14%" }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Bill</th>
@@ -315,9 +307,9 @@ export default function Reports() {
                 <tbody>
                   {analysis.bills.map((bill) => (
                     <tr key={`${bill.bill_info}-${bill.title}`}>
-                      <td className="kw-cell">
-                        <div style={{ fontWeight: 600 }}>{bill.title}</div>
-                        <div className="source-cell">{bill.bill_info}</div>
+                      <td className="legislation-bill-name">
+                        <div>{bill.title}</div>
+                        <span>{bill.bill_info}</span>
                       </td>
                       <td>{bill.year || "N/A"}</td>
                       <td>{bill.version || "N/A"}</td>

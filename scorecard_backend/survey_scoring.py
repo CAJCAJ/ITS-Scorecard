@@ -948,6 +948,11 @@ def compute_deployment_coverage_for_year(
                         "survey_mode": survey_mode,
                         "domain_name": domain,
                         "weight_priority": priority,
+                        "main_q_id": meta.main_q_id,
+                        "main_question": meta.main_question,
+                        "item_question": meta.item_question,
+                        "answer_variable": meta.answer_variable,
+                        "variable_format": meta.variable_format,
                         "positive_deployment": is_positive,
                         "source_row_index": int(row_index),
                     }
@@ -1102,6 +1107,57 @@ def compute_deployment_coverage_for_year(
         on="agency_key",
         how="left",
     )
+
+    top_item_details: dict[str, list[dict[str, Any]]] = {}
+    top_item_group_cols = [
+        "domain_name",
+        "main_q_id",
+        "main_question",
+        "item_question",
+        "answer_variable",
+        "variable_format",
+    ]
+    top_item_df = (
+        item_df.groupby(top_item_group_cols, dropna=False)
+        .agg(
+            positive_count=("positive_deployment", "sum"),
+            response_count=("positive_deployment", "count"),
+        )
+        .reset_index()
+    )
+    top_item_df = top_item_df[top_item_df["positive_count"] > 0].copy()
+    if not top_item_df.empty:
+        top_item_df["positive_rate"] = top_item_df.apply(
+            lambda row: (
+                float(row["positive_count"]) / float(row["response_count"])
+                if float(row["response_count"] or 0) > 0
+                else 0.0
+            ),
+            axis=1,
+        )
+        top_item_df = top_item_df.sort_values(
+            ["domain_name", "positive_count", "positive_rate"],
+            ascending=[True, False, False],
+        )
+        for domain_name, group in top_item_df.groupby("domain_name", dropna=False):
+            details = []
+            for row in group.head(5).to_dict(orient="records"):
+                question = collapse_spaces(row.get("item_question") or "")
+                if not question:
+                    question = collapse_spaces(row.get("main_question") or "")
+                details.append(
+                    {
+                        "question_id": collapse_spaces(row.get("main_q_id", "")),
+                        "question": question,
+                        "answer_variable": collapse_spaces(row.get("answer_variable", "")),
+                        "variable_format": collapse_spaces(row.get("variable_format", "")),
+                        "positive_count": int(row.get("positive_count") or 0),
+                        "response_count": int(row.get("response_count") or 0),
+                        "positive_rate": round(float(row.get("positive_rate") or 0.0), 6),
+                    }
+                )
+            top_item_details[domain_name] = details
+
     results = []
     for domain_name in DEFAULT_DOMAIN_ORDER:
         subset = category_scale_df[category_scale_df["domain_name"] == domain_name]
@@ -1123,6 +1179,7 @@ def compute_deployment_coverage_for_year(
                 "covered_agency_count": int(subset["agency_key"].nunique()),
                 "positive_agency_count": int(subset["agency_key"].nunique()),
                 "positive_items_total": int(subset["positive_items"].sum()),
+                "top_items": top_item_details.get(domain_name, []),
                 "is_policy_fallback": False,
             }
         )

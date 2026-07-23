@@ -5,7 +5,7 @@ from survey_score_utils import parse_first_number, parse_positive_number
 
 
 FACILITY_QUESTIONS = QUESTION_IDS[TOPIC_KEYS["facility"]]
-FACILITY_MAX_SCORE = 1.0
+FACILITY_MAX_SCORE = 0.98
 FACILITY_CAPACITY_SCALE = 7.5
 FACILITY_CURVE_SHAPE = 1.5
 
@@ -104,6 +104,20 @@ def compute_facility_capacity_score(answers):
         if has_input
         else None
     )
+    if has_input and aggregate_capacity > 0 and unified_score is not None:
+        running_total = 0.0
+        for index, item in enumerate(breakdown):
+            if index == len(breakdown) - 1:
+                contribution = max(0.0, unified_score - running_total)
+            else:
+                contribution = unified_score * item["weighted_value"] / aggregate_capacity
+                running_total += contribution
+            item["unified_score_contribution"] = min(
+                FACILITY_MAX_SCORE, max(0.0, round(contribution, 6))
+            )
+    else:
+        for item in breakdown:
+            item["unified_score_contribution"] = 0.0
 
     return {
         "has_input": has_input,

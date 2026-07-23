@@ -5,6 +5,7 @@ import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers } from "../utils/surveyUpdates";
 import { getSessionState } from "../utils/auth";
+import "./FacilityAnalysis.css";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
 
@@ -195,23 +196,36 @@ export default function FacilityAnalysis() {
               <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>
                 Facility Capacity Breakdown
               </h3>
-              <div style={{ overflowX: "auto" }}>
-                <table className="preview-table" style={{ minWidth: "860px" }}>
+              <div className="facility-table-wrap">
+                <table className="facility-breakdown-table">
+                  <colgroup>
+                    <col style={{ width: "44%" }} />
+                    <col style={{ width: "28%" }} />
+                    <col style={{ width: "28%" }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Facility Component</th>
                       <th>Reported Value</th>
                       <th>Unified Score</th>
-                      <th>Method Note</th>
                     </tr>
                   </thead>
                   <tbody>
                     {facilityScore.breakdown.map((item) => (
                       <tr key={item.label}>
-                        <td className="kw-cell">{item.label}</td>
+                        <td className="facility-component-cell">
+                          <span className="facility-component-name">
+                            {item.label}
+                          </span>
+                          <div className="facility-method-tooltip">
+                            <h4>{item.label}</h4>
+                            <p>{item.note}</p>
+                          </div>
+                        </td>
                         <td>{item.value}</td>
-                        <td>{Number(item.weighted_value).toFixed(2)}</td>
-                        <td className="source-cell">{item.note}</td>
+                        <td>
+                          {Number(item.unified_score_contribution || 0).toFixed(3)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

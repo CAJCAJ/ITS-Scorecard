@@ -5,6 +5,7 @@ import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers } from "../utils/surveyUpdates";
 import { getSessionState } from "../utils/auth";
+import "./PlanningAnalysis.css";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
 
@@ -13,6 +14,12 @@ function formatValue(label, value) {
     return value > 0 ? `$${Number(value).toLocaleString()}` : 0;
   }
   return value;
+}
+
+function formatMoney(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return "$0";
+  return `$${number.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
 export default function PlanningAnalysis() {
@@ -32,6 +39,18 @@ export default function PlanningAnalysis() {
     if (Array.isArray(value)) return value.length > 0;
     return String(value || "").trim() !== "";
   }).length;
+
+  const awardSummary = useMemo(() => {
+    const details = planningScore?.award_details || [];
+    const totalFunding = details.reduce(
+      (sum, award) => sum + Number(award.amount || 0),
+      0
+    );
+    return {
+      count: details.length,
+      totalFunding,
+    };
+  }, [planningScore]);
 
   const fetchScore = async (answers, stateName = selectedState, year = selectedYear) => {
     setLoading(true);
@@ -203,23 +222,34 @@ export default function PlanningAnalysis() {
               <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>
                 Planning Score Breakdown
               </h3>
-              <div style={{ overflowX: "auto" }}>
-                <table className="preview-table" style={{ minWidth: "860px" }}>
+              <div className="planning-table-wrap">
+                <table className="planning-breakdown-table">
+                  <colgroup>
+                    <col style={{ width: "44%" }} />
+                    <col style={{ width: "28%" }} />
+                    <col style={{ width: "28%" }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Planning Component</th>
                       <th>Reported Value</th>
                       <th>Unified Score</th>
-                      <th>Method Note</th>
                     </tr>
                   </thead>
                   <tbody>
                     {planningScore.breakdown.map((item) => (
                       <tr key={item.label}>
-                        <td className="kw-cell">{item.label}</td>
+                        <td className="planning-component-cell">
+                          <span className="planning-component-name">
+                            {item.label}
+                          </span>
+                          <div className="planning-method-tooltip">
+                            <h4>{item.label}</h4>
+                            <p>{item.note}</p>
+                          </div>
+                        </td>
                         <td>{formatValue(item.label, item.value)}</td>
                         <td>{Number(item.weighted_value).toFixed(3)}</td>
-                        <td className="source-cell">{item.note}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -254,6 +284,66 @@ export default function PlanningAnalysis() {
               </div>
             </aside>
           </div>
+
+          <section className="card planning-award-card">
+            <div className="planning-award-header">
+              <div>
+                <h3>Award Funding Details for {selectedState} ({selectedYear})</h3>
+                <p>
+                  {awardSummary.count
+                    ? `${awardSummary.count} award rows used for this year's planning score.`
+                    : "No award rows used for this year's planning score."}
+                </p>
+              </div>
+              <div className="planning-award-total">
+                <span>Total Award Funding</span>
+                <strong>{formatMoney(awardSummary.totalFunding)}</strong>
+              </div>
+            </div>
+            {!planningScore.award_details?.length ? (
+              <p>No award funding details available for this year.</p>
+            ) : (
+              <div className="planning-table-wrap">
+                <table className="planning-award-table">
+                  <colgroup>
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "26%" }} />
+                    <col style={{ width: "20%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "9%" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Funding Name</th>
+                      <th>Awarded Project</th>
+                      <th>Awarded Agency</th>
+                      <th>Funding Level</th>
+                      <th>Amount</th>
+                      <th>Duration</th>
+                      <th>Unified Score Contribution</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {planningScore.award_details.map((award, index) => (
+                      <tr key={`${award.awarded_project || award.funding_name}-${index}`}>
+                        <td>{award.funding_name || award.funding_title || "N/A"}</td>
+                        <td>{award.awarded_project || award.funding_title || "N/A"}</td>
+                        <td>{award.awarded_agency || award.award_agency || "N/A"}</td>
+                        <td>{award.funding_level || "N/A"}</td>
+                        <td>{formatMoney(award.amount)}</td>
+                        <td>{award.duration || "N/A"}</td>
+                        <td>
+                          {Number(award.unified_score_contribution || 0).toFixed(3)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>
