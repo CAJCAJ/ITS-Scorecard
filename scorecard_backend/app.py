@@ -5,6 +5,7 @@ import math
 import os
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -13,6 +14,11 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 from benefit_cost_analysis import compute_benefit_cost_score
+from benefit_cost_records import (
+    aggregate_long_benefit_cost_records,
+    is_long_benefit_cost_record,
+    validate_long_benefit_cost_records,
+)
 from deployment_coverage_analysis import compute_deployment_coverage_score
 from expert_review import (
     EXPERT_REVIEW_DOMAINS,
@@ -658,6 +664,27 @@ def get_benefit_cost_score():
                 result["source_notes"] = get_record_value(
                     benefit_cost_record, "source_notes", "Source Notes"
                 )
+                component_details = benefit_cost_record.get("_component_details", [])
+                result["component_details"] = component_details
+                result["technologies_considered"] = benefit_cost_record.get(
+                    "_technologies_considered", []
+                )
+                result["provenance_counts"] = benefit_cost_record.get(
+                    "_provenance_counts", {}
+                )
+                result["review_required"] = benefit_cost_record.get(
+                    "_review_required", False
+                )
+                result["review_component_keys"] = benefit_cost_record.get(
+                    "_review_component_keys", []
+                )
+                detail_by_key = {
+                    detail.get("component_key"): detail for detail in component_details
+                }
+                for breakdown_item in result.get("breakdown", []):
+                    detail = detail_by_key.get(breakdown_item.get("component_key"))
+                    if detail:
+                        breakdown_item["source_detail"] = detail
                 result["document_id"] = document.get("id") if document else None
                 return jsonify(result)
 
@@ -1819,7 +1846,360 @@ def find_latest_facility_record(state_name, survey_year):
 
 
 def find_latest_benefit_cost_record(state_name, survey_year):
-    return find_latest_record_by_doc_type("benefit_cost", state_name, survey_year)
+    documents = execute_paged_select(
+        "documents",
+        lambda query: query.eq("doc_type", "benefit_cost")
+        .eq("status", "uploaded")
+        .order("created_at", desc=True),
+    )
+    for document in documents:
+        rows = fetch_document_rows(document["id"])
+        matching_rows = [
+            row
+            for row in rows
+            if str(get_record_value(row, "state", "State") or "").strip().lower()
+            == state_name.strip().lower()
+            and str(get_record_value(row, "survey_year", "Survey Year") or "").strip()
+            == str(survey_year).strip()
+        ]
+        if not matching_rows:
+            continue
+        if any(is_long_benefit_cost_record(row) for row in matching_rows):
+            aggregated = aggregate_long_benefit_cost_records(matching_rows)
+            if aggregated:
+                return aggregated, document
+            continue
+        return matching_rows[0], document
+    return None, None
+
+
+def fetch_rows_grouped_by_document(document_ids):
+    grouped = {document_id: [] for document_id in document_ids}
+    if not document_ids:
+        return grouped
+
+    def fetch_entries(document_id):
+        return document_id, execute_paged_select(
+            "uploaded_dataset_rows",
+            lambda query, doc_id=document_id: query.eq(
+                "document_id", doc_id
+            ).order("row_index"),
+        )
+
+    with ThreadPoolExecutor(max_workers=min(4, len(document_ids))) as executor:
+        futures = {
+            executor.submit(fetch_entries, document_id): document_id
+            for document_id in document_ids
+        }
+        for future in as_completed(futures):
+            document_id = futures[future]
+            try:
+                _document_id, entries = future.result()
+            except Exception:
+                _document_id, entries = fetch_entries(document_id)
+            grouped[_document_id] = entries
+    return grouped
+
+
+def document_record_rows(rows_by_document, document_id):
+    return [
+        entry.get("row_data", {})
+        for entry in rows_by_document.get(document_id, [])
+    ]
+
+
+def record_matches_state_year(record, state_name, survey_year):
+    return (
+        str(get_record_value(record, "state", "State") or "").strip().lower()
+        == state_name.strip().lower()
+        and str(get_record_value(record, "survey_year", "Survey Year") or "").strip()
+        == str(survey_year).strip()
+    )
+
+
+def find_benefit_cost_record_from_snapshot(
+    documents, rows_by_document, state_name, survey_year
+):
+    for document in documents:
+        matching_rows = [
+            row
+            for row in document_record_rows(rows_by_document, document["id"])
+            if record_matches_state_year(row, state_name, survey_year)
+        ]
+        if not matching_rows:
+            continue
+        if any(is_long_benefit_cost_record(row) for row in matching_rows):
+            aggregated = aggregate_long_benefit_cost_records(matching_rows)
+            if aggregated:
+                return aggregated
+            continue
+        return matching_rows[0]
+    return None
+
+
+def find_record_from_snapshot(documents, rows_by_document, state_name, survey_year):
+    for document in documents:
+        for row in document_record_rows(rows_by_document, document["id"]):
+            if record_matches_state_year(row, state_name, survey_year):
+                return row
+    return None
+
+
+def find_planning_record_from_snapshot(
+    documents, rows_by_document, state_name, survey_year
+):
+    matches = []
+    for document in documents:
+        for row in document_record_rows(rows_by_document, document["id"]):
+            if record_matches_state_year(row, state_name, survey_year):
+                matches.append((row, document))
+    return merge_planning_records(matches) if matches else None
+
+
+def fetch_dashboard_survey_updates(state_name):
+    try:
+        submissions = execute_paged_select(
+            "survey_update_submissions",
+            lambda query: query.eq("state", state_name).order("updated_at", desc=True),
+        )
+    except Exception:
+        return {}
+
+    latest_submissions = {}
+    for submission in submissions:
+        key = (
+            str(submission.get("topic_key") or "").strip(),
+            str(submission.get("survey_year") or "").strip(),
+        )
+        if key[0] and key[1] and key not in latest_submissions:
+            latest_submissions[key] = submission
+
+    submission_ids = [
+        submission.get("id")
+        for submission in latest_submissions.values()
+        if submission.get("id")
+    ]
+    answers_by_submission = {submission_id: [] for submission_id in submission_ids}
+    try:
+        for start in range(0, len(submission_ids), 100):
+            submission_chunk = submission_ids[start : start + 100]
+            answer_rows = execute_paged_select(
+                "survey_update_answers",
+                lambda query, ids=submission_chunk: query.in_("submission_id", ids),
+            )
+            for answer_row in answer_rows:
+                answers_by_submission.setdefault(
+                    answer_row.get("submission_id"), []
+                ).append(answer_row)
+    except Exception:
+        return {}
+
+    updates = {}
+    for key, submission in latest_submissions.items():
+        answers = {}
+        for answer_row in answers_by_submission.get(submission.get("id"), []):
+            value = answer_row.get("answer_json")
+            if value is None and answer_row.get("answer_text") not in (None, ""):
+                value = answer_row.get("answer_text")
+            if value is None and answer_row.get("answer_number") is not None:
+                value = answer_row.get("answer_number")
+            answers[answer_row.get("question_id")] = value
+        updates[key] = answers
+    return updates
+
+
+def dashboard_score_number(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def dashboard_deployment_score(result):
+    coverage_score = dashboard_score_number(result.get("coverage_score"))
+    if coverage_score is not None:
+        return coverage_score
+
+    scores = []
+    for item in result.get("items", []):
+        scored_agency_count = dashboard_score_number(item.get("scored_agency_count"))
+        if item.get("is_policy_fallback") is True or not scored_agency_count:
+            continue
+        score = dashboard_score_number(item.get("default_value"))
+        if score is not None:
+            scores.append(score)
+    return sum(scores) / len(scores) if scores else None
+
+
+def dashboard_overall_score(domain_scores):
+    scores = [score for score in domain_scores if score is not None]
+    return sum(scores) / len(scores) if scores else None
+
+
+@app.route("/api/dashboard/history", methods=["GET"])
+def get_dashboard_history():
+    try:
+        state_name = str(request.args.get("state", "")).strip()
+        if not state_name:
+            return jsonify({"error": "State is required."}), 400
+        if state_name not in {"Texas", "New Jersey"}:
+            return jsonify({"error": "State must be Texas or New Jersey."}), 400
+
+        trend_years = [str(year) for year in range(2000, 2024)]
+        documents = execute_paged_select(
+            "documents",
+            lambda query: query.eq("status", "uploaded").order(
+                "created_at", desc=True
+            ),
+        )
+        documents_by_type = {
+            doc_type: [
+                document
+                for document in documents
+                if document.get("doc_type") == doc_type
+            ]
+            for doc_type in ("benefit_cost", "legislation", "planning", "facility")
+        }
+        deployment_documents = [
+            document
+            for document in documents
+            if document.get("doc_type") == "survey"
+            and document.get("data_kind") == "survey_workbook"
+            and str(document.get("survey_year") or "") in trend_years
+        ]
+        relevant_documents = deployment_documents + [
+            document
+            for doc_type_documents in documents_by_type.values()
+            for document in doc_type_documents
+        ]
+        relevant_document_ids = list(
+            dict.fromkeys(
+                document.get("id")
+                for document in relevant_documents
+                if document.get("id")
+            )
+        )
+        rows_by_document = fetch_rows_grouped_by_document(relevant_document_ids)
+
+        legislation_records = []
+        for document in documents_by_type["legislation"]:
+            records = document_record_rows(rows_by_document, document["id"])
+            document_state = document.get("state") or infer_single_state_from_records(
+                records
+            )
+            if str(document_state or "").strip().lower() == state_name.lower():
+                legislation_records.extend(records)
+
+        survey_updates = fetch_dashboard_survey_updates(state_name)
+        history_rows = []
+        for survey_year in trend_years:
+            benefit_record = find_benefit_cost_record_from_snapshot(
+                documents_by_type["benefit_cost"],
+                rows_by_document,
+                state_name,
+                survey_year,
+            )
+            benefit_answers = (
+                benefit_cost_record_to_answers(benefit_record)
+                if benefit_record
+                else survey_updates.get(("benefit_cost", survey_year), {})
+            )
+            benefit_result = compute_benefit_cost_score(benefit_answers)
+            benefit_score = dashboard_score_number(
+                benefit_result.get("unified_score")
+            )
+
+            year_deployment_documents = [
+                document
+                for document in deployment_documents
+                if str(document.get("survey_year") or "") == survey_year
+            ]
+            year_deployment_rows = [
+                entry
+                for document in year_deployment_documents
+                for entry in rows_by_document.get(document["id"], [])
+            ]
+            deployment_result = (
+                compute_deployment_coverage_for_year(
+                    year_deployment_documents, year_deployment_rows, state_name
+                )
+                if year_deployment_documents
+                else {}
+            )
+            deployment_score = dashboard_deployment_score(deployment_result)
+
+            legislation_result = (
+                analyze_legislation_records(legislation_records, survey_year)
+                if legislation_records
+                else {}
+            )
+            legislation_score = dashboard_score_number(
+                legislation_result.get("unifiedScore")
+            )
+
+            planning_record = find_planning_record_from_snapshot(
+                documents_by_type["planning"],
+                rows_by_document,
+                state_name,
+                survey_year,
+            )
+            planning_answers = (
+                planning_record_to_answers(planning_record)
+                if planning_record
+                else survey_updates.get(("project_planning", survey_year), {})
+            )
+            planning_result = compute_planning_score(planning_answers)
+            planning_score = dashboard_score_number(
+                planning_result.get("unified_score")
+            )
+
+            facility_record = find_record_from_snapshot(
+                documents_by_type["facility"],
+                rows_by_document,
+                state_name,
+                survey_year,
+            )
+            facility_answers = (
+                facility_record_to_answers(facility_record)
+                if facility_record
+                else survey_updates.get(("facility", survey_year), {})
+            )
+            facility_result = compute_facility_capacity_score(facility_answers)
+            facility_score = dashboard_score_number(
+                facility_result.get("unified_score")
+            )
+
+            history_rows.append(
+                {
+                    "year": survey_year,
+                    "overall": dashboard_overall_score(
+                        [
+                            benefit_score,
+                            deployment_score,
+                            legislation_score,
+                            planning_score,
+                            facility_score,
+                        ]
+                    ),
+                    "benefitCost": benefit_score,
+                    "deployment": deployment_score,
+                    "legislation": legislation_score,
+                    "planning": planning_score,
+                    "facility": facility_score,
+                }
+            )
+
+        return jsonify(
+            {
+                "state": state_name,
+                "start_year": trend_years[0],
+                "end_year": trend_years[-1],
+                "rows": history_rows,
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": f"Could not load dashboard history: {str(exc)}"}), 500
 
 
 @app.route("/api/planning/score", methods=["GET", "POST"])
@@ -2160,8 +2540,22 @@ def save_feedback_comment():
     try:
         payload = request.get_json(silent=True) or {}
         comment = str(payload.get("comment") or "").strip()
+        agency_company = str(payload.get("agency_company") or "").strip()
+        user_name = str(payload.get("user_name") or "").strip()
+        email = str(payload.get("email") or "").strip()
         if not comment:
             return jsonify({"error": "Feedback comment is required."}), 400
+        if not agency_company or not user_name or not email:
+            return jsonify(
+                {
+                    "error": (
+                        "Agency/Company, Username, and Email are required "
+                        "before submitting feedback."
+                    )
+                }
+            ), 400
+        if "@" not in email:
+            return jsonify({"error": "A valid feedback email is required."}), 400
 
         if len(comment) > 2000:
             return jsonify({"error": "Feedback comment must be 2000 characters or less."}), 400
@@ -2170,15 +2564,51 @@ def save_feedback_comment():
         feedback_row = {
             "id": str(uuid.uuid4()),
             "page_path": str(payload.get("page_path") or "").strip()[:500],
+            "section_block": str(payload.get("section_block") or "").strip()[:300],
+            "section_id": str(payload.get("section_id") or "").strip()[:200],
             "state": str(payload.get("state") or "").strip()[:100],
-            "user_name": str(payload.get("user_name") or "").strip()[:200],
+            "agency_company": agency_company[:300],
+            "user_name": user_name[:200],
+            "email": email[:320],
+            "account_user_name": str(payload.get("account_user_name") or "").strip()[:200],
             "comment": comment,
             "status": "new",
             "user_agent": str(request.headers.get("User-Agent") or "").strip()[:500],
             "created_at": now,
         }
 
-        supabase.table("feedback_comments").insert(feedback_row).execute()
+        try:
+            supabase.table("feedback_comments").insert(feedback_row).execute()
+        except Exception as insert_error:
+            error_text = str(insert_error).lower()
+            extended_columns = (
+                "agency_company",
+                "email",
+                "account_user_name",
+                "section_block",
+                "section_id",
+            )
+            schema_is_older = (
+                "schema cache" in error_text
+                and any(column in error_text for column in extended_columns)
+            )
+            if not schema_is_older:
+                raise
+
+            legacy_feedback_row = {
+                key: value
+                for key, value in feedback_row.items()
+                if key not in extended_columns
+            }
+            legacy_feedback_row["comment"] = (
+                f"Agency/Company: {agency_company}\n"
+                f"Username: {user_name}\n"
+                f"Email: {email}\n"
+                f"Section: {feedback_row['section_block'] or 'General page feedback'}\n"
+                f"Section ID: {feedback_row['section_id'] or 'N/A'}\n\n"
+                f"{comment}"
+            )
+            supabase.table("feedback_comments").insert(legacy_feedback_row).execute()
         return jsonify({"message": "Feedback saved", "id": feedback_row["id"]}), 201
     except Exception as exc:
         return jsonify({"error": f"Could not save feedback: {str(exc)}"}), 500
@@ -2249,6 +2679,17 @@ def upload_document():
             if doc_type == "legislation":
                 state_name = infer_single_state_from_records(records)
                 data_kind = "legislation_dataset"
+            elif doc_type == "benefit_cost":
+                validation_errors = validate_long_benefit_cost_records(records)
+                if validation_errors:
+                    return jsonify(
+                        {
+                            "error": "The normalized benefit/cost table is invalid.",
+                            "details": validation_errors,
+                        }
+                    ), 400
+                if any(is_long_benefit_cost_record(row) for row in records):
+                    data_kind = "benefit_cost_component_dataset"
             row_payloads = [{"row_data": row} for row in records]
 
         doc_id = str(uuid.uuid4())

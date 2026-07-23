@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StateLoginMap from "../components/StateLoginMap";
-import { isAuthed, login as authenticate } from "../utils/auth";
+import {
+  getPostLoginPath,
+  isAuthed,
+  login as authenticate,
+} from "../utils/auth";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -12,7 +16,7 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthed()) {
-      navigate("/dashboard", { replace: true });
+      navigate(getPostLoginPath(), { replace: true });
     }
   }, [navigate]);
 
@@ -37,7 +41,7 @@ export default function Login() {
       setError(result.error);
       return;
     }
-    navigate("/dashboard", { replace: true });
+    navigate("/feedback-profile", { replace: true });
   };
 
   return (

@@ -1,10 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation } from "react-router-dom";
 import { FaCommentDots, FaTimes } from "react-icons/fa";
 
 import { apiUrl } from "../services/api";
-import { getSessionState, getUsername } from "../utils/auth";
+import {
+  getFeedbackProfile,
+  getSessionState,
+  getUsername,
+} from "../utils/auth";
 import "./FloatingFeedbackPanel.css";
 
 export default function FloatingFeedbackPanel() {
@@ -13,6 +17,18 @@ export default function FloatingFeedbackPanel() {
   const [comment, setComment] = useState("");
   const [status, setStatus] = useState({ type: "", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedBlock, setSelectedBlock] = useState(null);
+  const feedbackProfile = getFeedbackProfile();
+
+  useEffect(() => {
+    const openForBlock = (event) => {
+      setSelectedBlock(event.detail || null);
+      setStatus({ type: "", message: "" });
+      setIsOpen(true);
+    };
+    window.addEventListener("its:open-feedback", openForBlock);
+    return () => window.removeEventListener("its:open-feedback", openForBlock);
+  }, []);
 
   const resetStatusSoon = () => {
     window.setTimeout(() => {
@@ -36,8 +52,14 @@ export default function FloatingFeedbackPanel() {
     try {
       await axios.post(apiUrl("/feedback"), {
         comment: trimmedComment,
-        page_path: `${location.pathname}${location.search}`,
-        user_name: getUsername(),
+        page_path:
+          selectedBlock?.pagePath || `${location.pathname}${location.search}`,
+        section_block: selectedBlock?.sectionBlock || "General page feedback",
+        section_id: selectedBlock?.sectionId || "",
+        agency_company: feedbackProfile.agencyCompany,
+        user_name: feedbackProfile.username,
+        email: feedbackProfile.email,
+        account_user_name: getUsername(),
         state: getSessionState(),
       });
 
@@ -60,7 +82,11 @@ export default function FloatingFeedbackPanel() {
         <button
           type="button"
           className="floating-feedback-trigger"
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setSelectedBlock(null);
+            setStatus({ type: "", message: "" });
+            setIsOpen(true);
+          }}
           aria-label="Open feedback panel"
         >
           <FaCommentDots />
@@ -84,10 +110,35 @@ export default function FloatingFeedbackPanel() {
           </div>
 
           <form onSubmit={handleSubmit}>
+            <div className="floating-feedback-selection">
+              <span>Commenting on</span>
+              <strong>
+                {selectedBlock?.sectionBlock || "General page feedback"}
+              </strong>
+            </div>
+            <div className="floating-feedback-profile">
+              <label>
+                <span>Agency/Company</span>
+                <input value={feedbackProfile.agencyCompany} readOnly />
+              </label>
+              <label>
+                <span>Username</span>
+                <input value={feedbackProfile.username} readOnly />
+              </label>
+              <label>
+                <span>Email</span>
+                <input value={feedbackProfile.email} readOnly />
+              </label>
+              <small>Locked for this login session</small>
+            </div>
             <textarea
               value={comment}
               onChange={(event) => setComment(event.target.value)}
-              placeholder="Type your thoughts, issues, or suggestions..."
+              placeholder={
+                selectedBlock
+                  ? `Comment on ${selectedBlock.sectionBlock}...`
+                  : "Type your thoughts, issues, or suggestions..."
+              }
               maxLength={2000}
               rows={5}
             />

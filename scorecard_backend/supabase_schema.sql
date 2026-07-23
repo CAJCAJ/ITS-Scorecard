@@ -244,8 +244,13 @@ create index if not exists idx_expert_review_items_session
 create table if not exists feedback_comments (
     id uuid primary key default gen_random_uuid(),
     page_path text,
+    section_block text,
+    section_id text,
     state text,
+    agency_company text,
     user_name text,
+    email text,
+    account_user_name text,
     comment text not null,
     status text not null default 'new',
     user_agent text,
@@ -253,8 +258,13 @@ create table if not exists feedback_comments (
 );
 
 alter table feedback_comments add column if not exists page_path text;
+alter table feedback_comments add column if not exists section_block text;
+alter table feedback_comments add column if not exists section_id text;
 alter table feedback_comments add column if not exists state text;
+alter table feedback_comments add column if not exists agency_company text;
 alter table feedback_comments add column if not exists user_name text;
+alter table feedback_comments add column if not exists email text;
+alter table feedback_comments add column if not exists account_user_name text;
 alter table feedback_comments add column if not exists comment text;
 alter table feedback_comments add column if not exists status text not null default 'new';
 alter table feedback_comments add column if not exists user_agent text;

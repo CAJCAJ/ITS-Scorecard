@@ -1,0 +1,48 @@
+.feedback-block-target {
+  position: relative;
+}
+
+.feedback-block-pencil {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 12;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1.5px solid #fff;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.3);
+}
+
+.feedback-block-pencil:hover,
+.feedback-block-pencil:focus-visible {
+  outline: none;
+  background: #0057ff;
+  transform: translateY(-1px);
+}
+
+.feedback-block-pencil:focus-visible {
+  box-shadow:
+    0 0 0 3px rgba(0, 87, 255, 0.24),
+    0 5px 14px rgba(15, 23, 42, 0.3);
+}
+
+@media (max-width: 700px) {
+  .feedback-block-pencil {
+    top: 7px;
+    right: 7px;
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+}
