@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { saveFeedbackProfile } from "../utils/auth";
+import { logout, saveFeedbackProfile } from "../utils/auth";
 import "./FeedbackProfile.css";
 
 export default function FeedbackProfile() {
@@ -20,6 +20,11 @@ export default function FeedbackProfile() {
     event.preventDefault();
     if (!saveFeedbackProfile(form)) return;
     navigate("/dashboard", { replace: true });
+  };
+
+  const handleBackToMap = () => {
+    logout();
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -70,7 +75,16 @@ export default function FeedbackProfile() {
             />
           </label>
 
-          <button type="submit">Continue to Dashboard</button>
+          <div className="feedback-profile-actions">
+            <button
+              type="button"
+              className="feedback-profile-back"
+              onClick={handleBackToMap}
+            >
+              Back to Map
+            </button>
+            <button type="submit">Continue to Dashboard</button>
+          </div>
         </form>
       </section>
     </main>

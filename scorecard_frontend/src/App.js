@@ -34,7 +34,6 @@ import DeploymentPreSurvey from "./pages/DeploymentPreSurvey";
 
 import { DashboardProvider } from "./context/DashboardContext";
 import {
-  getPostLoginPath,
   getRole,
   hasFeedbackProfile,
   isAuthed,
@@ -43,25 +42,27 @@ import {
 import "./styles/global.css";
 
 function ProtectedRoute({ children }) {
-  if (!isAuthed()) return <Navigate to="/login" replace />;
-  return hasFeedbackProfile()
-    ? children
-    : <Navigate to="/feedback-profile" replace />;
+  if (!isAuthed() || !hasFeedbackProfile()) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
 }
 
 function AdminRoute({ children }) {
-  if (!isAuthed()) return <Navigate to="/login" replace />;
-  if (!hasFeedbackProfile()) {
-    return <Navigate to="/feedback-profile" replace />;
+  if (!isAuthed() || !hasFeedbackProfile()) {
+    return <Navigate to="/login" replace />;
   }
   return getRole() === "admin" ? children : <Navigate to="/home" replace />;
 }
 
 function FeedbackProfileRoute() {
+  const location = useLocation();
+
   if (!isAuthed()) return <Navigate to="/login" replace />;
-  return hasFeedbackProfile()
-    ? <Navigate to="/dashboard" replace />
-    : <FeedbackProfile />;
+  if (hasFeedbackProfile()) return <Navigate to="/dashboard" replace />;
+  return location.state?.fromLogin
+    ? <FeedbackProfile />
+    : <Navigate to="/login" replace />;
 }
 
 function AppLayout({ collapsed, onToggleSidebar }) {
@@ -85,8 +86,8 @@ function AppLayout({ collapsed, onToggleSidebar }) {
           <Route
             path="/login"
             element={
-              isAuthed()
-                ? <Navigate to={getPostLoginPath()} replace />
+              isAuthed() && hasFeedbackProfile()
+                ? <Navigate to="/dashboard" replace />
                 : <Login />
             }
           />
@@ -96,8 +97,8 @@ function AppLayout({ collapsed, onToggleSidebar }) {
           <Route
             path="/"
             element={
-              isAuthed() ? (
-                <Navigate to={getPostLoginPath()} replace />
+              isAuthed() && hasFeedbackProfile() ? (
+                <Navigate to="/dashboard" replace />
               ) : (
                 <Navigate to="/login" replace />
               )
