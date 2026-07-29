@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 import { apiUrl } from "../services/api";
 import { getSessionState } from "../utils/auth";
+import "./ExpertPanelReview.css";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
 const JUDGMENT_OPTIONS = [
@@ -130,6 +131,11 @@ export default function ExpertPanelReview() {
         current_value: currentValueItem.current_value || "",
         unified_score: currentValueItem.unified_score || "",
         source_basis: currentValueItem.source_basis || "No Value Available",
+        review_required: Boolean(currentValueItem.review_required),
+        provenance_type: currentValueItem.provenance_type || "",
+        source_title: currentValueItem.source_title || "",
+        source_url: currentValueItem.source_url || "",
+        evidence_scope: currentValueItem.evidence_scope || "",
       };
     });
   };
@@ -437,7 +443,10 @@ export default function ExpertPanelReview() {
               </thead>
               <tbody>
                 {items.map((item, index) => (
-                  <tr key={item.subaspect_key || index}>
+                  <tr
+                    key={item.subaspect_key || index}
+                    className={item.review_required ? "expert-review-required-row" : ""}
+                  >
                     <td className="kw-cell">{item.subaspect_label}</td>
                     <td>
                       <input
@@ -453,7 +462,19 @@ export default function ExpertPanelReview() {
                         style={{ ...fieldStyle(), background: "#f8fafc" }}
                       />
                     </td>
-                    <td className="source-cell">{item.source_basis || "No Value Available"}</td>
+                    <td className="source-cell">
+                      <div className="expert-source-basis">
+                        <span>{item.source_basis || "No Value Available"}</span>
+                        {item.review_required ? (
+                          <strong>Review Required</strong>
+                        ) : null}
+                        {item.source_title ? (
+                          <small title={item.evidence_scope || undefined}>
+                            {item.source_title}
+                          </small>
+                        ) : null}
+                      </div>
+                    </td>
                     <td>
                       <select
                         value={item.expert_judgment || ""}

@@ -994,40 +994,46 @@ def get_uploaded_review_values(domain_key, state_name, survey_year):
         if not benefit_cost_record:
             return {}
         answers = benefit_cost_record_to_answers(benefit_cost_record)
-        return add_review_scores(domain_key, {
-            "existing_mobility_benefit": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_mobility_benefit") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-            "existing_safety_benefit": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_safety_benefit") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-            "existing_environment_benefit": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_environment_benefit") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-            "new_mobility_benefit": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_new_mobility_benefit") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-            "new_safety_benefit": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_new_safety_benefit") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-            "new_environment_benefit": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_new_environment_benefit") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-            "existing_om_cost": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_existing_om_cost_total") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-            "new_deployment_cost": {
-                "current_value": str(get_record_value(benefit_cost_record, "bc_new_cost_total") or ""),
-                "source_basis": "Calculated from Upload",
-            },
-        }, answers)
+        component_mapping = {
+            "existing_mobility_benefit": "bc_existing_mobility_benefit",
+            "existing_safety_benefit": "bc_existing_safety_benefit",
+            "existing_environment_benefit": "bc_existing_environment_benefit",
+            "new_mobility_benefit": "bc_new_mobility_benefit",
+            "new_safety_benefit": "bc_new_safety_benefit",
+            "new_environment_benefit": "bc_new_environment_benefit",
+            "existing_om_cost": "bc_existing_om_cost_total",
+            "new_deployment_cost": "bc_new_cost_total",
+        }
+        details_by_key = {
+            detail.get("component_key"): detail
+            for detail in benefit_cost_record.get("_component_details", [])
+        }
+        values = {}
+        for subaspect_key, component_key in component_mapping.items():
+            detail = details_by_key.get(component_key, {})
+            provenance_type = str(detail.get("provenance_type") or "").strip()
+            review_required = bool(detail.get("review_required"))
+            if review_required:
+                source_basis = "Mock Default - Expert Review Required"
+            elif provenance_type == "Exact_Dataset":
+                source_basis = "Exact Dataset"
+            elif provenance_type == "Authorized_Derived":
+                source_basis = "Authorized Derived"
+            else:
+                source_basis = "Calculated from Upload"
+
+            values[subaspect_key] = {
+                "current_value": str(
+                    get_record_value(benefit_cost_record, component_key) or ""
+                ),
+                "source_basis": source_basis,
+                "review_required": review_required,
+                "provenance_type": provenance_type,
+                "source_title": str(detail.get("source_title") or ""),
+                "source_url": str(detail.get("source_url") or ""),
+                "evidence_scope": str(detail.get("evidence_scope") or ""),
+            }
+        return add_review_scores(domain_key, values, answers)
 
     if domain_key == "deployment_coverage":
         survey_documents = execute_paged_select(
@@ -2339,6 +2345,9 @@ def get_expert_review_current_values():
                 "survey_update_submission": submission,
                 "source_priority": [
                     "Calculated from Survey-Based Updates",
+                    "Exact Dataset",
+                    "Authorized Derived",
+                    "Mock Default - Expert Review Required",
                     "Calculated from Upload",
                     "Preloaded Baseline",
                     "No Value Available",

@@ -1,12 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import DashboardCard from "../components/DashboardCard";
 import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
 import { getTopicAnswers, loadSurveyAnswers } from "../utils/surveyUpdates";
 import { getSessionState } from "../utils/auth";
+import "./BenefitCostAnalysis.css";
 
 const YEAR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(2000 + index));
+const PROVENANCE_LABELS = {
+  Exact_Dataset: "Exact Dataset",
+  Authorized_Derived: "Authorized Derived",
+  Mock_Default: "Mock Default",
+};
 
 function formatMoney(value) {
   return `$${Number(value || 0).toLocaleString(undefined, {
@@ -22,6 +29,15 @@ function formatValue(label, value) {
     return formatMoney(value);
   }
   return value;
+}
+
+function evidenceLabel(detail) {
+  if (!detail) return "Provided Input";
+  return PROVENANCE_LABELS[detail.provenance_type] || "Uploaded Value";
+}
+
+function tooltipId(componentKey) {
+  return `bc-detail-${String(componentKey || "component").replace(/[^a-z0-9_-]/gi, "-")}`;
 }
 
 export default function BenefitCostAnalysis() {
@@ -45,6 +61,13 @@ export default function BenefitCostAnalysis() {
   const activeInputCount = result?.breakdown
     ? result.breakdown.filter((item) => Number(item.value) > 0).length
     : answeredCount;
+
+  const reviewRequiredCount = useMemo(() => {
+    if (!result?.breakdown) return 0;
+    return result.breakdown.filter(
+      (item) => item.source_detail?.review_required
+    ).length;
+  }, [result]);
 
   const fetchScore = async (answers, stateName = selectedState, year = selectedYear) => {
     setLoading(true);
@@ -214,47 +237,157 @@ export default function BenefitCostAnalysis() {
               value={result.unified_score.toFixed(3)}
               color="#10b981"
             />
+            <DashboardCard
+              title="Defaults to Review"
+              value={reviewRequiredCount}
+              color="#dc6b19"
+            />
           </div>
 
+          {reviewRequiredCount > 0 ? (
+            <section className="bc-review-alert" aria-live="polite">
+              <div>
+                <strong>
+                  {reviewRequiredCount} mock default
+                  {reviewRequiredCount === 1 ? " requires" : "s require"} expert review
+                </strong>
+                <span>
+                  Hover over a component name to inspect its evidence and
+                  derivation details.
+                </span>
+              </div>
+              <Link to="/upload/expert-panel-review">
+                Open Expert Panel Review
+              </Link>
+            </section>
+          ) : null}
+
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)",
-              gap: "24px",
-              alignItems: "start",
-            }}
+            className="bc-analysis-grid"
           >
             <section className="card" style={{ padding: "26px", borderRadius: "18px" }}>
               <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>
                 Benefit and Cost Breakdown
               </h3>
-              <div style={{ overflowX: "auto" }}>
-                <table className="preview-table" style={{ minWidth: "860px" }}>
+              <div className="bc-table-wrap">
+                <table className="bc-breakdown-table">
+                  <colgroup>
+                    <col style={{ width: "36%" }} />
+                    <col style={{ width: "20%" }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "26%" }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Component</th>
                       <th>Reported Value</th>
                       <th>Unified Score</th>
-                      <th>Method Note</th>
+                      <th>Evidence Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {result.breakdown.map((item) => (
-                      <tr key={item.label}>
-                        <td className="kw-cell">{item.label}</td>
+                    {result.breakdown.map((item) => {
+                      const detail = item.source_detail;
+                      const detailId = tooltipId(item.component_key);
+                      return (
+                      <tr
+                        key={item.component_key || item.label}
+                        className={detail?.review_required ? "bc-review-row" : ""}
+                      >
+                        <td className="bc-component-cell">
+                          <span
+                            className="bc-component-name"
+                            tabIndex={0}
+                            aria-describedby={detailId}
+                          >
+                            {item.label}
+                          </span>
+                          <div
+                            id={detailId}
+                            className="bc-component-tooltip"
+                            role="tooltip"
+                          >
+                            <h4>{item.label}</h4>
+                            <p>
+                              <strong>Scoring use:</strong> {item.note}
+                            </p>
+                            {detail ? (
+                              <>
+                                <p>
+                                  <strong>Evidence:</strong>{" "}
+                                  {evidenceLabel(detail)}
+                                  {detail.review_required
+                                    ? " - expert review required"
+                                    : ""}
+                                </p>
+                                {detail.source_title ? (
+                                  <p>
+                                    <strong>Source:</strong> {detail.source_title}
+                                    {detail.source_publication_year
+                                      ? ` (${detail.source_publication_year})`
+                                      : ""}
+                                  </p>
+                                ) : null}
+                                {detail.evidence_scope ? (
+                                  <p>
+                                    <strong>Scope:</strong> {detail.evidence_scope}
+                                  </p>
+                                ) : null}
+                                {detail.source_value_note ? (
+                                  <p>
+                                    <strong>Source value:</strong>{" "}
+                                    {detail.source_value_note}
+                                  </p>
+                                ) : null}
+                                {detail.derivation_method ? (
+                                  <p>
+                                    <strong>Derivation:</strong>{" "}
+                                    {detail.derivation_method}
+                                  </p>
+                                ) : null}
+                                {detail.technologies?.length ? (
+                                  <p>
+                                    <strong>Technologies:</strong>{" "}
+                                    {detail.technologies.join(", ")}
+                                  </p>
+                                ) : null}
+                              </>
+                            ) : (
+                              <p>
+                                Component-level source metadata is not available
+                                for this input.
+                              </p>
+                            )}
+                          </div>
+                        </td>
                         <td>{formatValue(item.label, item.value)}</td>
                         <td>
                           {Number(item.weighted_value).toFixed(3)}
                         </td>
-                        <td className="source-cell">{item.note}</td>
+                        <td>
+                          <span
+                            className={`bc-evidence-badge ${
+                              detail?.review_required
+                                ? "review-required"
+                                : "review-complete"
+                            }`}
+                          >
+                            {detail?.review_required
+                              ? "Review Required"
+                              : evidenceLabel(detail)}
+                          </span>
+                        </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
             </section>
 
-            <aside className="card" style={{ padding: "26px", borderRadius: "18px" }}>
+            <aside
+              className="card bc-summary-card"
+              style={{ padding: "26px", borderRadius: "18px" }}
+            >
               <h3 style={{ marginTop: 0, color: "#1f2d3d" }}>Summary</h3>
               <div style={{ color: "#607185", lineHeight: 1.7 }}>
                 <p>
@@ -266,6 +399,24 @@ export default function BenefitCostAnalysis() {
                 {result.evidence_level ? (
                   <p>Evidence Level: {result.evidence_level}</p>
                 ) : null}
+                {result.provenance_counts
+                  ? Object.entries(result.provenance_counts).map(
+                      ([provenanceType, count]) => (
+                        <p key={provenanceType}>
+                          {PROVENANCE_LABELS[provenanceType] || provenanceType}:{" "}
+                          {count}
+                        </p>
+                      )
+                    )
+                  : null}
+                <p>
+                  Expert Review:{" "}
+                  {reviewRequiredCount > 0
+                    ? `${reviewRequiredCount} default value${
+                        reviewRequiredCount === 1 ? "" : "s"
+                      } require review`
+                    : "No mock defaults require review"}
+                </p>
                 {result.conversion_basis ? (
                   <p>{result.conversion_basis}</p>
                 ) : null}
