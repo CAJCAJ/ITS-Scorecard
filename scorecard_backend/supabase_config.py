@@ -39,9 +39,9 @@ def get_supabase_settings():
 
     url = os.getenv("SUPABASE_URL", "").strip()
     key = (
-        os.getenv("SUPABASE_KEY", "").strip()
-        or os.getenv("SUPABASE_SECRET_KEY", "").strip()
+        os.getenv("SUPABASE_SECRET_KEY", "").strip()
         or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+        or os.getenv("SUPABASE_KEY", "").strip()
         or os.getenv("SUPABASE_ANON_KEY", "").strip()
     )
 
@@ -57,4 +57,21 @@ def get_supabase_settings():
 
 def create_supabase_client():
     url, key = get_supabase_settings()
+    return create_client(url, key)
+
+
+def create_supabase_admin_client():
+    load_local_env()
+
+    url = os.getenv("SUPABASE_URL", "").strip()
+    key = (
+        os.getenv("SUPABASE_SECRET_KEY", "").strip()
+        or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    )
+    if not url or not key:
+        raise RuntimeError(
+            "Permanent return links require SUPABASE_URL and either "
+            "SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY."
+        )
+
     return create_client(url, key)

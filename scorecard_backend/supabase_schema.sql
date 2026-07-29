@@ -276,6 +276,29 @@ create index if not exists idx_feedback_comments_created_at
 create index if not exists idx_feedback_comments_status
     on feedback_comments (status, created_at desc);
 
+create table if not exists dashboard_return_links (
+    id uuid primary key default gen_random_uuid(),
+    token_hash text not null unique,
+    email text not null,
+    display_name text not null,
+    agency_company text not null,
+    state text not null check (state in ('New Jersey', 'Texas')),
+    consent_text text not null,
+    consent_version text not null default '1.0',
+    consented_at timestamptz not null default timezone('utc', now()),
+    created_at timestamptz not null default timezone('utc', now()),
+    last_used_at timestamptz,
+    use_count integer not null default 0,
+    revoked_at timestamptz
+);
+
+create index if not exists idx_dashboard_return_links_email
+    on dashboard_return_links (lower(email));
+
+alter table dashboard_return_links enable row level security;
+revoke all on dashboard_return_links from anon;
+revoke all on dashboard_return_links from authenticated;
+
 alter table documents disable row level security;
 alter table deleted_docs disable row level security;
 alter table uploaded_dataset_rows disable row level security;

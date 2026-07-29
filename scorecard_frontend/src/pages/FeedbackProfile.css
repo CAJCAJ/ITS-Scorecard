@@ -53,7 +53,7 @@
   font-weight: 800;
 }
 
-.feedback-profile-window input {
+.feedback-profile-window input:not([type="checkbox"]) {
   width: 100%;
   padding: 13px 14px;
   border: 1px solid #cfd8e3;
@@ -64,7 +64,7 @@
   box-sizing: border-box;
 }
 
-.feedback-profile-window input:focus {
+.feedback-profile-window input:not([type="checkbox"]):focus {
   outline: none;
   border-color: #0057ff;
   box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.12);
@@ -75,6 +75,38 @@
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   gap: 12px;
   margin-top: 6px;
+}
+
+.feedback-profile-consent {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid #d7e0ea;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #42526a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.feedback-profile-consent input {
+  width: 19px;
+  height: 19px;
+  margin: 1px 0 0;
+  accent-color: #0057ff;
+}
+
+.feedback-profile-error {
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #b42318;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .feedback-profile-window button {
@@ -90,6 +122,11 @@
 
 .feedback-profile-window button:hover {
   background: #0047d6;
+}
+
+.feedback-profile-window button:disabled {
+  background: #a9b8cb;
+  cursor: not-allowed;
 }
 
 .feedback-profile-window .feedback-profile-back {
@@ -122,10 +159,22 @@
   color: #cbd5e1;
 }
 
-[data-theme="dark"] .feedback-profile-window input {
+[data-theme="dark"] .feedback-profile-window input:not([type="checkbox"]) {
   border-color: #475569;
   background: #0f172a;
   color: #fff;
+}
+
+[data-theme="dark"] .feedback-profile-consent {
+  border-color: #475569;
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .feedback-profile-error {
+  border-color: #7f1d1d;
+  background: #450a0a;
+  color: #fecaca;
 }
 
 [data-theme="dark"] .feedback-profile-window .feedback-profile-back {

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
 import DashboardCard from "../components/DashboardCard";
 import { getTopicLabel, TOPIC_KEYS } from "../config/surveySchema";
 import { apiUrl } from "../services/api";
@@ -243,24 +242,6 @@ export default function BenefitCostAnalysis() {
               color="#dc6b19"
             />
           </div>
-
-          {reviewRequiredCount > 0 ? (
-            <section className="bc-review-alert" aria-live="polite">
-              <div>
-                <strong>
-                  {reviewRequiredCount} mock default
-                  {reviewRequiredCount === 1 ? " requires" : "s require"} expert review
-                </strong>
-                <span>
-                  Hover over a component name to inspect its evidence and
-                  derivation details.
-                </span>
-              </div>
-              <Link to="/upload/expert-panel-review">
-                Open Expert Panel Review
-              </Link>
-            </section>
-          ) : null}
 
           <div
             className="bc-analysis-grid"

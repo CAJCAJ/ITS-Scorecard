@@ -20,6 +20,14 @@ from benefit_cost_records import (
     validate_long_benefit_cost_records,
 )
 from deployment_coverage_analysis import compute_deployment_coverage_score
+from dashboard_return_links import (
+    CONSENT_TEXT,
+    CONSENT_VERSION,
+    build_resume_url,
+    generate_return_token,
+    hash_return_token,
+    send_return_link_email,
+)
 from expert_review import (
     EXPERT_REVIEW_DOMAINS,
     apply_current_values,
@@ -34,7 +42,7 @@ from legislation_analysis import analyze_legislation_records
 from planning_analysis import compute_planning_score
 from policy_legislation_analysis import compute_policy_legislation_score
 from scorecard_processor import analyze_state_data
-from supabase_config import create_supabase_client
+from supabase_config import create_supabase_admin_client, create_supabase_client
 from survey_scoring import (
     compute_default_values_for_year,
     compute_deployment_coverage_for_year,
@@ -113,10 +121,149 @@ COLUMN_ALIASES = {
     "category": "category",
 }
 
+RETURN_LINK_STATES = {"New Jersey", "Texas"}
+RETURN_LINK_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
     return jsonify({"status": "ok"})
+
+
+def delete_failed_return_link(client, row_id):
+    try:
+        client.table("dashboard_return_links").delete().eq("id", row_id).execute()
+    except Exception:
+        app.logger.exception("Could not remove a return link after email failure.")
+
+
+@app.route("/api/dashboard-return-links", methods=["POST"])
+def create_dashboard_return_link():
+    payload = request.get_json(silent=True) or {}
+    agency_company = str(payload.get("agency_company") or "").strip()
+    display_name = str(payload.get("display_name") or "").strip()
+    email = str(payload.get("email") or "").strip().lower()
+    state = str(payload.get("state") or "").strip()
+    consented = payload.get("consented") is True
+
+    if not agency_company or not display_name or not email:
+        return jsonify(
+            {"error": "Agency/Company, Name, and Email are required."}
+        ), 400
+    if len(agency_company) > 300 or len(display_name) > 200 or len(email) > 320:
+        return jsonify({"error": "Identification information is too long."}), 400
+    if not RETURN_LINK_EMAIL_PATTERN.fullmatch(email):
+        return jsonify({"error": "Enter a valid email address."}), 400
+    if state not in RETURN_LINK_STATES:
+        return jsonify({"error": "The selected state is not supported."}), 400
+    if not consented:
+        return jsonify({"error": "Email consent is required."}), 400
+
+    raw_token = generate_return_token()
+    row_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "id": row_id,
+        "token_hash": hash_return_token(raw_token),
+        "email": email,
+        "display_name": display_name,
+        "agency_company": agency_company,
+        "state": state,
+        "consent_text": CONSENT_TEXT,
+        "consent_version": CONSENT_VERSION,
+        "consented_at": now,
+        "created_at": now,
+        "use_count": 0,
+    }
+
+    try:
+        admin_supabase = create_supabase_admin_client()
+        admin_supabase.table("dashboard_return_links").insert(row).execute()
+    except Exception:
+        app.logger.exception("Could not save a permanent dashboard return link.")
+        return jsonify(
+            {"error": "Could not create the permanent dashboard link."}
+        ), 500
+
+    try:
+        resume_url = build_resume_url(raw_token)
+        send_return_link_email(email, display_name, resume_url)
+    except Exception:
+        app.logger.exception("Could not send a dashboard return-link email.")
+        delete_failed_return_link(admin_supabase, row_id)
+        return jsonify(
+            {
+                "error": (
+                    "Your information was not saved because the dashboard "
+                    "email could not be sent. Please try again."
+                )
+            }
+        ), 502
+
+    return jsonify(
+        {
+            "message": "A permanent dashboard link was sent to your email.",
+        }
+    ), 201
+
+
+@app.route("/api/dashboard-return-links/resolve", methods=["POST"])
+def resolve_dashboard_return_link():
+    payload = request.get_json(silent=True) or {}
+    raw_token = str(payload.get("token") or "").strip()
+    if len(raw_token) < 32 or len(raw_token) > 500:
+        return jsonify({"error": "The dashboard return link is invalid."}), 400
+
+    try:
+        admin_supabase = create_supabase_admin_client()
+        result = (
+            admin_supabase.table("dashboard_return_links")
+            .select("*")
+            .eq("token_hash", hash_return_token(raw_token))
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+    except Exception:
+        app.logger.exception("Could not resolve a permanent dashboard return link.")
+        return jsonify({"error": "Could not validate the dashboard link."}), 500
+
+    if not rows:
+        return jsonify({"error": "The dashboard return link was not found."}), 404
+
+    row = rows[0]
+    if row.get("revoked_at"):
+        return jsonify({"error": "The dashboard return link has been revoked."}), 410
+    if row.get("state") not in RETURN_LINK_STATES:
+        return jsonify({"error": "The saved dashboard state is not supported."}), 400
+
+    use_count = int(row.get("use_count") or 0) + 1
+    try:
+        (
+            admin_supabase.table("dashboard_return_links")
+            .update(
+                {
+                    "last_used_at": datetime.now(timezone.utc).isoformat(),
+                    "use_count": use_count,
+                }
+            )
+            .eq("id", row["id"])
+            .execute()
+        )
+    except Exception:
+        app.logger.exception("Could not update dashboard return-link usage.")
+
+    return jsonify(
+        {
+            "profile": {
+                "agency_company": row.get("agency_company", ""),
+                "display_name": row.get("display_name", ""),
+                "email": row.get("email", ""),
+            },
+            "state": row["state"],
+            "role": "viewer",
+        }
+    )
 
 
 def normalize_token(value):
@@ -2558,7 +2705,7 @@ def save_feedback_comment():
             return jsonify(
                 {
                     "error": (
-                        "Agency/Company, Username, and Email are required "
+                        "Agency/Company, Name, and Email are required "
                         "before submitting feedback."
                     )
                 }
@@ -2611,7 +2758,7 @@ def save_feedback_comment():
             }
             legacy_feedback_row["comment"] = (
                 f"Agency/Company: {agency_company}\n"
-                f"Username: {user_name}\n"
+                f"Name: {user_name}\n"
                 f"Email: {email}\n"
                 f"Section: {feedback_row['section_block'] or 'General page feedback'}\n"
                 f"Section ID: {feedback_row['section_id'] or 'N/A'}\n\n"

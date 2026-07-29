@@ -14,6 +14,7 @@ import FloatingFeedbackPanel from "./components/FloatingFeedbackPanel";
 
 import Login from "./pages/Login";
 import FeedbackProfile from "./pages/FeedbackProfile";
+import ResumeDashboard from "./pages/ResumeDashboard";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -69,7 +70,8 @@ function AppLayout({ collapsed, onToggleSidebar }) {
   const location = useLocation();
   const isLoginPage = location.pathname === "/login";
   const isFeedbackProfilePage = location.pathname === "/feedback-profile";
-  const isEntryPage = isLoginPage || isFeedbackProfilePage;
+  const isResumePage = location.pathname === "/resume";
+  const isEntryPage = isLoginPage || isFeedbackProfilePage || isResumePage;
 
   return (
     <div
@@ -93,6 +95,7 @@ function AppLayout({ collapsed, onToggleSidebar }) {
           />
 
           <Route path="/feedback-profile" element={<FeedbackProfileRoute />} />
+          <Route path="/resume" element={<ResumeDashboard />} />
 
           <Route
             path="/"

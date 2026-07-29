@@ -5,46 +5,6 @@
   align-items: start;
 }
 
-.bc-review-alert {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin: 0 0 24px;
-  padding: 17px 20px;
-  border: 1px solid rgba(220, 107, 25, 0.34);
-  border-radius: 16px;
-  background: linear-gradient(135deg, #fff8ef, #fffdf8);
-  color: #7c3b0b;
-  box-shadow: 0 10px 30px rgba(120, 53, 15, 0.08);
-}
-
-.bc-review-alert div,
-.bc-review-alert strong,
-.bc-review-alert span {
-  display: block;
-}
-
-.bc-review-alert span {
-  margin-top: 4px;
-  color: #8a5a32;
-  font-size: 0.9rem;
-}
-
-.bc-review-alert a {
-  flex: 0 0 auto;
-  padding: 10px 14px;
-  border: 1px solid #dc6b19;
-  border-radius: 10px;
-  color: #a3480b;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.bc-review-alert a:hover {
-  background: #fff1df;
-}
-
 .bc-table-wrap {
   width: 100%;
   max-width: 100%;
@@ -193,16 +153,6 @@
   overflow-wrap: anywhere;
 }
 
-[data-theme="dark"] .bc-review-alert {
-  border-color: rgba(251, 146, 60, 0.42);
-  background: linear-gradient(135deg, #422006, #2b1a0f);
-  color: #fed7aa;
-}
-
-[data-theme="dark"] .bc-review-alert span {
-  color: #fdba74;
-}
-
 [data-theme="dark"] .bc-component-tooltip {
   border-color: rgba(148, 163, 184, 0.35);
   background: rgba(15, 23, 42, 0.93);
@@ -215,11 +165,6 @@
 }
 
 @media (max-width: 680px) {
-  .bc-review-alert {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .bc-breakdown-table th,
   .bc-breakdown-table td {
     padding: 11px 8px;

@@ -99,6 +99,31 @@ export function saveFeedbackProfile(profile) {
   return true;
 }
 
+export function restoreDashboardSession({ state, agencyCompany, displayName, email }) {
+  const scopedState = normalizeStateName(state);
+  const profile = {
+    agencyCompany: String(agencyCompany || "").trim(),
+    username: String(displayName || "").trim(),
+    email: String(email || "").trim(),
+  };
+
+  if (
+    !SUPPORTED_STATES.includes(scopedState) ||
+    !profile.agencyCompany ||
+    !profile.username ||
+    !profile.email
+  ) {
+    return false;
+  }
+
+  localStorage.setItem(AUTH_KEY, "1");
+  localStorage.setItem(ROLE_KEY, "viewer");
+  localStorage.setItem(USER_KEY, "Email Return Link");
+  localStorage.setItem(STATE_KEY, scopedState);
+  localStorage.setItem(FEEDBACK_PROFILE_KEY, JSON.stringify(profile));
+  return true;
+}
+
 export const getPostLoginPath = () =>
   hasFeedbackProfile() ? "/dashboard" : "/feedback-profile";
 
