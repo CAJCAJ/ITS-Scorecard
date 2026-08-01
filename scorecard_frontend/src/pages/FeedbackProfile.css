@@ -10,7 +10,7 @@
 }
 
 .feedback-profile-window {
-  width: min(660px, 100%);
+  width: min(520px, 100%);
   padding: 36px;
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 20px;
@@ -72,7 +72,7 @@
 
 .feedback-profile-actions {
   display: grid;
-  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.05fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   gap: 12px;
   margin-top: 6px;
 }
@@ -139,16 +139,6 @@
   background: #eef4fb;
 }
 
-.feedback-profile-window .feedback-profile-skip {
-  border: 1px solid #7b8ba1;
-  background: #edf2f7;
-  color: #243247;
-}
-
-.feedback-profile-window .feedback-profile-skip:hover {
-  background: #dde6f0;
-}
-
 [data-theme="dark"] .feedback-profile-page {
   background:
     radial-gradient(circle at top left, rgba(0, 87, 255, 0.24), transparent 38%),
@@ -191,16 +181,6 @@
   border-color: #475569;
   background: #0f172a;
   color: #f8fafc;
-}
-
-[data-theme="dark"] .feedback-profile-window .feedback-profile-skip {
-  border-color: #64748b;
-  background: #334155;
-  color: #f8fafc;
-}
-
-[data-theme="dark"] .feedback-profile-window .feedback-profile-skip:hover {
-  background: #475569;
 }
 
 [data-theme="dark"] .feedback-profile-window .feedback-profile-back:hover {

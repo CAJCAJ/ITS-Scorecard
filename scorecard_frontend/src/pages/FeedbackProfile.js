@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -12,7 +12,6 @@ import "./FeedbackProfile.css";
 
 export default function FeedbackProfile() {
   const navigate = useNavigate();
-  const formRef = useRef(null);
   const [form, setForm] = useState({
     agencyCompany: "",
     username: "",
@@ -60,16 +59,6 @@ export default function FeedbackProfile() {
     navigate("/login", { replace: true });
   };
 
-  const handleSkipEmail = () => {
-    if (!formRef.current?.reportValidity()) return;
-    setError("");
-    if (!saveFeedbackProfile(form)) {
-      setError("Could not save identification information.");
-      return;
-    }
-    navigate("/dashboard", { replace: true });
-  };
-
   return (
     <main className="feedback-profile-page">
       <section
@@ -81,11 +70,11 @@ export default function FeedbackProfile() {
         <div className="feedback-profile-kicker">Feedback Information</div>
         <h1 id="feedback-profile-title">Please Kindly Provide your information</h1>
         <p>
-          This information identifies your feedback. You can request a permanent
-          email link or skip email delivery and continue directly.
+          This information identifies your feedback. A permanent link will be
+          emailed to you so you can return to the dashboard later.
         </p>
 
-        <form ref={formRef} onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <label>
             <span>Agency/Company</span>
             <input
@@ -144,14 +133,6 @@ export default function FeedbackProfile() {
               onClick={handleBackToMap}
             >
               Back to Map
-            </button>
-            <button
-              type="button"
-              className="feedback-profile-skip"
-              onClick={handleSkipEmail}
-              disabled={submitting}
-            >
-              Skip Send and Continue
             </button>
             <button type="submit" disabled={!consented || submitting}>
               {submitting ? "Sending Email..." : "Continue to Dashboard"}
