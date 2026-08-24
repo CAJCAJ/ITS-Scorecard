@@ -1,0 +1,574 @@
+/* Responsive corrections loaded after the legacy global styles. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.app-container,
+.content,
+.dashboard-container,
+.upload-page,
+.card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.content {
+  width: auto;
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+}
+
+.dashboard-container,
+.upload-page {
+  width: 100%;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+
+.dashboard-source-scroll,
+.expert-review-table-wrap,
+.planning-table-wrap,
+.facility-table-wrap,
+.legislation-table-wrap,
+.deployment-table-wrap,
+.deployment-agency-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.dashboard-source-table,
+.expert-review-table,
+.planning-breakdown-table,
+.planning-award-table,
+.facility-breakdown-table,
+.legislation-bill-table,
+.deployment-coverage-table,
+.deployment-agency-table,
+.deployment-source-table,
+.bc-breakdown-table,
+.preview-table {
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+.dashboard-source-table th,
+.dashboard-source-table td,
+.expert-review-table th,
+.expert-review-table td,
+.planning-breakdown-table th,
+.planning-breakdown-table td,
+.planning-award-table th,
+.planning-award-table td,
+.facility-breakdown-table th,
+.facility-breakdown-table td,
+.legislation-bill-table th,
+.legislation-bill-table td,
+.deployment-coverage-table th,
+.deployment-coverage-table td,
+.deployment-agency-table th,
+.deployment-agency-table td,
+.deployment-source-table th,
+.deployment-source-table td,
+.bc-breakdown-table th,
+.bc-breakdown-table td,
+.preview-table th,
+.preview-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.floating-feedback-panel {
+  max-height: calc(100vh - 44px);
+  min-height: min(620px, calc(100vh - 44px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 1500px) {
+  .content,
+  .app-container.collapsed .content {
+    width: auto;
+    margin-left: 60px;
+    padding: 18px;
+  }
+
+  .sidebar:not(.collapsed) {
+    width: min(400px, calc(100vw - 12px));
+    min-width: min(400px, calc(100vw - 12px));
+    max-width: min(400px, calc(100vw - 12px));
+    box-shadow: 18px 0 42px rgba(15, 23, 42, 0.28);
+  }
+
+  .scorecard-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-source-table {
+    min-width: 0;
+  }
+
+  .expert-review-table,
+  .expert-review-table tbody,
+  .expert-review-table tr,
+  .expert-review-table td {
+    display: block;
+  }
+
+  .expert-review-table colgroup,
+  .expert-review-table thead {
+    display: none;
+  }
+
+  .expert-review-table tbody {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+    gap: 18px;
+  }
+
+  .expert-review-table tr {
+    padding: 16px;
+    border: 1px solid #dce5ef;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  [data-theme="dark"] .expert-review-table tr {
+    border-color: #475569;
+    background: #1f2937;
+  }
+
+  .expert-review-table td {
+    padding: 10px 0;
+    border-bottom: 1px solid #edf2f7;
+  }
+
+  .expert-review-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .expert-review-table td::before {
+    display: block;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .expert-review-table td:nth-child(1)::before { content: "Subaspect"; }
+  .expert-review-table td:nth-child(2)::before { content: "Current Value"; }
+  .expert-review-table td:nth-child(3)::before { content: "Unified Score"; }
+  .expert-review-table td:nth-child(4)::before { content: "Source"; }
+  .expert-review-table td:nth-child(5)::before { content: "Judgment"; }
+  .expert-review-table td:nth-child(6)::before { content: "Suggested Value"; }
+  .expert-review-table td:nth-child(7)::before { content: "Confidence"; }
+  .expert-review-table td:nth-child(8)::before { content: "Comment"; }
+  .expert-review-table td:nth-child(9)::before { content: "Method Change"; }
+}
+
+@media (max-width: 1180px) {
+  .upload-layout,
+  .deployment-analysis-grid,
+  .deployment-pie-layout,
+  .analysis-summary-grid,
+  .survey-update-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .survey-update-filters,
+  .pre-survey-identity-grid,
+  .expert-review-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .pre-survey-subquestion-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+  }
+
+  .pre-survey-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
+  }
+
+  .upload-page {
+    padding: 24px;
+  }
+
+  .upload-right {
+    min-height: 0;
+  }
+
+  .preview-controls,
+  .planning-award-header,
+  .deployment-contribution-header {
+    flex-wrap: wrap;
+  }
+
+  .preview-filter-select {
+    min-width: min(260px, 100%);
+  }
+}
+
+@media (max-width: 900px) {
+  .metrics-grid,
+  .kpi-grid,
+  .charts-grid,
+  .reports-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .survey-update-filters,
+  .pre-survey-identity-grid,
+  .expert-review-filters {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-source-table,
+  .dashboard-source-table tbody,
+  .dashboard-source-table tr,
+  .dashboard-source-table td,
+  .planning-award-table,
+  .planning-award-table tbody,
+  .planning-award-table tr,
+  .planning-award-table td,
+  .legislation-bill-table,
+  .legislation-bill-table tbody,
+  .legislation-bill-table tr,
+  .legislation-bill-table td,
+  .deployment-source-table,
+  .deployment-source-table tbody,
+  .deployment-source-table tr,
+  .deployment-source-table td {
+    display: block;
+  }
+
+  .dashboard-source-table colgroup,
+  .dashboard-source-table thead,
+  .planning-award-table colgroup,
+  .planning-award-table thead,
+  .legislation-bill-table colgroup,
+  .legislation-bill-table thead,
+  .deployment-source-table colgroup,
+  .deployment-source-table thead {
+    display: none;
+  }
+
+  .dashboard-source-table tr,
+  .planning-award-table tr,
+  .legislation-bill-table tr,
+  .deployment-source-table tr {
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid #dce5ef;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .dashboard-source-table td,
+  .planning-award-table td,
+  .legislation-bill-table td,
+  .deployment-source-table td {
+    display: grid;
+    grid-template-columns: minmax(120px, 36%) minmax(0, 1fr);
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf2f7;
+  }
+
+  .dashboard-source-table td:last-child,
+  .planning-award-table td:last-child,
+  .legislation-bill-table td:last-child,
+  .deployment-source-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-source-table td::before,
+  .planning-award-table td::before,
+  .legislation-bill-table td::before,
+  .deployment-source-table td::before {
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .dashboard-source-table td:nth-child(1)::before { content: "Domain"; }
+  .dashboard-source-table td:nth-child(2)::before { content: "Score"; }
+  .dashboard-source-table td:nth-child(3)::before { content: "Source"; }
+  .dashboard-source-table td:nth-child(4)::before { content: "Details"; }
+  .dashboard-source-table td:nth-child(5)::before { content: "Action"; }
+
+  .planning-award-table td:nth-child(1)::before { content: "Funding Name"; }
+  .planning-award-table td:nth-child(2)::before { content: "Awarded Project"; }
+  .planning-award-table td:nth-child(3)::before { content: "Awarded Agency"; }
+  .planning-award-table td:nth-child(4)::before { content: "Funding Level"; }
+  .planning-award-table td:nth-child(5)::before { content: "Amount"; }
+  .planning-award-table td:nth-child(6)::before { content: "Duration"; }
+  .planning-award-table td:nth-child(7)::before { content: "Unified Score"; }
+
+  .legislation-bill-table td:nth-child(1)::before { content: "Bill"; }
+  .legislation-bill-table td:nth-child(2)::before { content: "Year"; }
+  .legislation-bill-table td:nth-child(3)::before { content: "Status"; }
+  .legislation-bill-table td:nth-child(4)::before { content: "Category"; }
+  .legislation-bill-table td:nth-child(5)::before { content: "Score"; }
+  .legislation-bill-table td:nth-child(6)::before { content: "Meaning"; }
+
+  .deployment-source-table td:nth-child(1)::before { content: "Table"; }
+  .deployment-source-table td:nth-child(2)::before { content: "Survey Type"; }
+  .deployment-source-table td:nth-child(3)::before { content: "Scope"; }
+  .deployment-source-table td:nth-child(4)::before { content: "Rows"; }
+  .deployment-source-table td:nth-child(5)::before { content: "Uploaded"; }
+
+  .dashboard-action-cell {
+    text-align: left;
+  }
+}
+
+@media (max-width: 680px) {
+  .content,
+  .app-container.collapsed .content {
+    padding: 12px;
+  }
+
+  .dashboard-container,
+  .upload-page {
+    padding-top: 12px;
+  }
+
+  .card,
+  .upload-right,
+  .upload-card,
+  .dashboard-trend-card {
+    padding: 16px !important;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  .dashboard-title,
+  .upload-header h1 {
+    font-size: clamp(1.45rem, 7vw, 2rem);
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-header,
+  .upload-header,
+  .dashboard-section-header,
+  .preview-controls,
+  .floating-feedback-footer {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch !important;
+  }
+
+  .pre-survey-question-header {
+    flex-wrap: wrap;
+  }
+
+  .pre-survey-question-header > span {
+    white-space: normal !important;
+  }
+
+  .preview-search-input,
+  .preview-filter-select,
+  select,
+  input,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+
+  .planning-breakdown-table,
+  .planning-breakdown-table tbody,
+  .planning-breakdown-table tr,
+  .planning-breakdown-table td,
+  .facility-breakdown-table,
+  .facility-breakdown-table tbody,
+  .facility-breakdown-table tr,
+  .facility-breakdown-table td,
+  .deployment-coverage-table,
+  .deployment-coverage-table tbody,
+  .deployment-coverage-table tr,
+  .deployment-coverage-table td,
+  .deployment-agency-table,
+  .deployment-agency-table tbody,
+  .deployment-agency-table tr,
+  .deployment-agency-table td,
+  .bc-breakdown-table,
+  .bc-breakdown-table tbody,
+  .bc-breakdown-table tr,
+  .bc-breakdown-table td,
+  .preview-table:not(.expert-review-table),
+  .preview-table:not(.expert-review-table) tbody,
+  .preview-table:not(.expert-review-table) tr,
+  .preview-table:not(.expert-review-table) td {
+    display: block;
+  }
+
+  .planning-breakdown-table colgroup,
+  .planning-breakdown-table thead,
+  .facility-breakdown-table colgroup,
+  .facility-breakdown-table thead,
+  .deployment-coverage-table colgroup,
+  .deployment-coverage-table thead,
+  .deployment-agency-table colgroup,
+  .deployment-agency-table thead,
+  .bc-breakdown-table colgroup,
+  .bc-breakdown-table thead,
+  .preview-table:not(.expert-review-table) thead {
+    display: none;
+  }
+
+  .planning-breakdown-table tr,
+  .facility-breakdown-table tr,
+  .deployment-coverage-table tr,
+  .deployment-agency-table tr,
+  .bc-breakdown-table tr,
+  .preview-table:not(.expert-review-table) tr {
+    margin-bottom: 14px;
+    padding: 13px;
+    border: 1px solid #dce5ef;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .planning-breakdown-table td,
+  .facility-breakdown-table td,
+  .deployment-coverage-table td,
+  .deployment-agency-table td,
+  .bc-breakdown-table td,
+  .preview-table:not(.expert-review-table) td {
+    display: grid;
+    grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf2f7;
+    font-size: 0.88rem;
+  }
+
+  .planning-breakdown-table td:last-child,
+  .facility-breakdown-table td:last-child,
+  .deployment-coverage-table td:last-child,
+  .deployment-agency-table td:last-child,
+  .bc-breakdown-table td:last-child,
+  .preview-table:not(.expert-review-table) td:last-child {
+    border-bottom: 0;
+  }
+
+  .planning-breakdown-table td::before,
+  .facility-breakdown-table td::before,
+  .deployment-coverage-table td::before,
+  .deployment-agency-table td::before,
+  .bc-breakdown-table td::before,
+  .preview-table:not(.expert-review-table) td::before {
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .planning-breakdown-table td:nth-child(1)::before { content: "Component"; }
+  .planning-breakdown-table td:nth-child(2)::before { content: "Reported Value"; }
+  .planning-breakdown-table td:nth-child(3)::before { content: "Unified Score"; }
+  .facility-breakdown-table td:nth-child(1)::before { content: "Component"; }
+  .facility-breakdown-table td:nth-child(2)::before { content: "Reported Value"; }
+  .facility-breakdown-table td:nth-child(3)::before { content: "Unified Score"; }
+  .deployment-coverage-table td:nth-child(1)::before { content: "ITS Technology"; }
+  .deployment-coverage-table td:nth-child(2)::before { content: "Coverage Score"; }
+  .deployment-coverage-table td:nth-child(3)::before { content: "Agencies"; }
+  .deployment-agency-table td:nth-child(1)::before { content: "Agency"; }
+  .deployment-agency-table td:nth-child(2)::before { content: "Agency Score"; }
+  .deployment-agency-table td:nth-child(3)::before { content: "Contribution"; }
+  .bc-breakdown-table td:nth-child(1)::before { content: "Component"; }
+  .bc-breakdown-table td:nth-child(2)::before { content: "Current Value"; }
+  .bc-breakdown-table td:nth-child(3)::before { content: "Unified Score"; }
+  .bc-breakdown-table td:nth-child(4)::before { content: "Review Status"; }
+  .preview-table:not(.expert-review-table) td:nth-child(1)::before { content: "Table Name"; }
+  .preview-table:not(.expert-review-table) td:nth-child(2)::before { content: "Category"; }
+  .preview-table:not(.expert-review-table) td:nth-child(3)::before { content: "Status"; }
+  .preview-table:not(.expert-review-table) td:nth-child(4)::before { content: "Action"; }
+
+  [data-theme="dark"] .planning-breakdown-table tr,
+  [data-theme="dark"] .facility-breakdown-table tr,
+  [data-theme="dark"] .deployment-coverage-table tr,
+  [data-theme="dark"] .deployment-agency-table tr,
+  [data-theme="dark"] .bc-breakdown-table tr,
+  [data-theme="dark"] .preview-table:not(.expert-review-table) tr,
+  [data-theme="dark"] .dashboard-source-table tr,
+  [data-theme="dark"] .planning-award-table tr,
+  [data-theme="dark"] .legislation-bill-table tr,
+  [data-theme="dark"] .deployment-source-table tr {
+    border-color: #475569;
+    background: #1f2937;
+  }
+
+  .deployment-pie-chart,
+  .dashboard-trend-chart,
+  .chart-wrapper {
+    min-height: 260px;
+  }
+
+  .floating-feedback {
+    top: 10px;
+    right: 10px;
+  }
+
+  .floating-feedback-panel {
+    width: calc(100vw - 80px);
+    max-height: calc(100vh - 20px);
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .floating-feedback textarea {
+    min-height: 180px;
+  }
+
+  .deployment-category-tooltip,
+  .planning-method-tooltip,
+  .facility-method-tooltip,
+  .bc-method-tooltip {
+    position: fixed;
+    inset: auto 12px 12px 72px;
+    width: auto;
+    max-width: none;
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+    z-index: 1800;
+  }
+
+  .dashboard-source-table td,
+  .planning-award-table td,
+  .legislation-bill-table td,
+  .deployment-source-table td {
+    grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
+  }
+}

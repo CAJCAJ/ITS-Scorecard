@@ -177,8 +177,8 @@ export default function UploadUpdate() {
       {/* ── Header ── */}
       <div className="upload-header">
         <div>
-          <h1>Update Agency Documents</h1>
-          <p>Upload &amp; manage important documents to keep your data updated</p>
+          <h1>Upload Source Data</h1>
+          <p>Upload and manage the datasets and documents used by the scorecard</p>
         </div>
         <div className="upload-header-stats">
           <span className="upload-stat-badge">{totalDocs} document{totalDocs !== 1 ? 's' : ''} uploaded</span>
@@ -188,7 +188,7 @@ export default function UploadUpdate() {
       <div className="upload-layout">
         {/* ══════════════ LEFT: Upload Cards ══════════════ */}
         <div className="upload-left">
-          <h2 className="upload-section-title">Upload New Documents</h2>
+          <h2 className="upload-section-title">Upload New Source Data</h2>
 
           <div className="upload-cards">
             {DOC_TYPES.map(({ key, label, accepts, acceptsLabel, Icon }) => (

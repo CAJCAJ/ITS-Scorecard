@@ -334,7 +334,7 @@ export default function Dashboard() {
             ITS Scorecard Dashboard - {stateName}
           </h1>
           <div style={{ color: "#607185", lineHeight: 1.6, maxWidth: "860px" }}>
-            Dynamic summary from the Scorecards tabs for the authenticated state.
+            Dynamic summary from the Scorecard Analysis tabs for the authenticated state.
           </div>
         </div>
 

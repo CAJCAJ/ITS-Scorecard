@@ -41,6 +41,7 @@ import {
 } from "./utils/auth";
 
 import "./styles/global.css";
+import "./styles/responsive.css";
 
 function ProtectedRoute({ children }) {
   if (!isAuthed() || !hasFeedbackProfile()) {
@@ -279,7 +280,18 @@ function AppLayout({ collapsed, onToggleSidebar }) {
 }
 
 export default function App() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => window.matchMedia("(max-width: 1500px)").matches
+  );
+
+  React.useEffect(() => {
+    const narrowViewport = window.matchMedia("(max-width: 1500px)");
+    const handleViewportChange = (event) => setCollapsed(event.matches);
+
+    narrowViewport.addEventListener("change", handleViewportChange);
+    return () => narrowViewport.removeEventListener("change", handleViewportChange);
+  }, []);
+
   const toggleSidebar = () => setCollapsed((c) => !c);
 
   return (

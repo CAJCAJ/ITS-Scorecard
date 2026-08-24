@@ -304,6 +304,7 @@ export default function ExpertPanelReview() {
 
       <section className="card" style={{ padding: "24px", marginBottom: "24px" }}>
         <div
+          className="expert-review-filters"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(5, minmax(160px, 1fr))",
@@ -426,8 +427,8 @@ export default function ExpertPanelReview() {
         ) : loading ? (
           <div style={{ color: "#607185", lineHeight: 1.7 }}>Loading review rows...</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="preview-table" style={{ minWidth: "1620px" }}>
+          <div className="expert-review-table-wrap">
+            <table className="preview-table expert-review-table">
               <thead>
                 <tr>
                   <th style={{ width: "260px" }}>Subaspect</th>

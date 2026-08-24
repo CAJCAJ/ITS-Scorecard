@@ -185,6 +185,7 @@ export default function FacilityAnalysis() {
           </div>
 
           <div
+            className="analysis-summary-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)",
@@ -251,7 +252,7 @@ export default function FacilityAnalysis() {
                 <p>
                   If an uploaded facility default table has a matching row for
                   {` ${selectedState} ${selectedYear}`}, it is used before
-                  saved Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.FACILITY)}.
+                  saved Scorecard Survey Responses for {getTopicLabel(TOPIC_KEYS.FACILITY)}.
                 </p>
                 <p>
                   Use the refresh button if you updated the answers in another

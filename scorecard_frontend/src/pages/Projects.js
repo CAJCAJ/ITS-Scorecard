@@ -116,7 +116,7 @@ const Projects = () => {
           <p>Manage and track Intelligent Transportation System projects and files</p>
         </div>
         <div className="header-actions">
-          <button className="btn btn-outline">Upload Files</button>
+          <button className="btn btn-outline">Upload Source Data</button>
           <button className="btn btn-primary">+ New Project</button>
         </div>
       </div>

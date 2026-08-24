@@ -211,6 +211,7 @@ export default function PlanningAnalysis() {
           </div>
 
           <div
+            className="analysis-summary-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)",
@@ -275,7 +276,7 @@ export default function PlanningAnalysis() {
                 <p>
                   If an uploaded planning default table has a matching row for
                   {` ${selectedState} ${selectedYear}`}, it is used before
-                  saved Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.PROJECT_PLANNING)}.
+                  saved Scorecard Survey Responses for {getTopicLabel(TOPIC_KEYS.PROJECT_PLANNING)}.
                 </p>
                 <p>
                   Use the refresh button if you updated the answers in another

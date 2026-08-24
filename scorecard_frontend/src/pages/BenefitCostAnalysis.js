@@ -407,7 +407,7 @@ export default function BenefitCostAnalysis() {
                 <p>
                   If an uploaded B/C default table has a matching row for
                   {` ${selectedState} ${selectedYear}`}, it is used before
-                  saved Survey-Based Updates for {getTopicLabel(TOPIC_KEYS.BENEFIT_COST)}.
+                  saved Scorecard Survey Responses for {getTopicLabel(TOPIC_KEYS.BENEFIT_COST)}.
                 </p>
                 <p>
                   Use the refresh button if you updated the answers in another

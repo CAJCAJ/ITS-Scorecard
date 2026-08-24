@@ -79,6 +79,7 @@ function QuestionCard({ question, index, answers, onAnswerChange }) {
       }}
     >
       <div
+        className="pre-survey-question-header"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -130,6 +131,7 @@ function QuestionCard({ question, index, answers, onAnswerChange }) {
           {question.subQuestions.map((subQuestion) => (
             <div
               key={subQuestion.variable}
+              className="pre-survey-subquestion-row"
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(260px, 1.2fr) minmax(220px, 0.8fr)",
@@ -203,7 +205,7 @@ export default function DeploymentPreSurvey() {
         if (!cancelled) {
           setError(
             requestError.response?.data?.error ||
-              "Could not load the ITS Deployment Pre-Survey."
+              "Could not load the ITS Deployment Survey."
           );
         }
       } finally {
@@ -253,7 +255,7 @@ export default function DeploymentPreSurvey() {
     } catch (requestError) {
       setError(
         requestError.response?.data?.error ||
-          "Could not save the pre-survey. Confirm the Supabase schema has been updated."
+          "Could not save the deployment survey. Confirm the Supabase schema has been updated."
       );
     } finally {
       setSaving(false);
@@ -262,11 +264,11 @@ export default function DeploymentPreSurvey() {
 
   return (
     <div className="dashboard-container" style={{ maxWidth: "1380px" }}>
-      <h1 className="dashboard-title">ITS Deployment Pre-Survey</h1>
+      <h1 className="dashboard-title">ITS Deployment Survey</h1>
 
       <section className="card" style={{ padding: "28px", borderRadius: "20px", marginBottom: "24px" }}>
         <p style={{ color: "#607185", lineHeight: 1.7, marginTop: 0 }}>
-          Complete a 2024 or 2025 pre-survey using the selected 2023 ITS deployment survey structure.
+          Complete a 2024 or 2025 survey using the selected 2023 ITS deployment survey structure.
           The state is locked to the current login session.
         </p>
 
@@ -288,7 +290,7 @@ export default function DeploymentPreSurvey() {
               color: "#0f3d77",
             }}
           >
-            Select Pre-Survey Type
+            Select Deployment Survey Type
           </div>
           <select
             value={selectedSurveyType}
@@ -311,6 +313,7 @@ export default function DeploymentPreSurvey() {
         </label>
 
         <div
+          className="pre-survey-identity-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "180px minmax(260px, 1fr) 220px 220px",
@@ -370,6 +373,7 @@ export default function DeploymentPreSurvey() {
 
       <section className="card" style={{ padding: "24px", borderRadius: "20px", marginBottom: "24px" }}>
         <div
+          className="pre-survey-summary-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(5, minmax(140px, 1fr))",
@@ -385,7 +389,7 @@ export default function DeploymentPreSurvey() {
       </section>
 
       {loading ? (
-        <div className="card" style={{ padding: "24px" }}>Loading pre-survey...</div>
+        <div className="card" style={{ padding: "24px" }}>Loading deployment survey...</div>
       ) : null}
 
       {schema?.questions?.length ? (

@@ -219,7 +219,7 @@ export default function SurveyBasedUpdates() {
 
   return (
     <div className="dashboard-container" style={{ maxWidth: "1360px" }}>
-      <h1 className="dashboard-title">Survey-Based Updates</h1>
+      <h1 className="dashboard-title">Scorecard Survey Responses</h1>
 
       <div
         className="card"
@@ -246,6 +246,7 @@ export default function SurveyBasedUpdates() {
         </div>
 
         <div
+          className="survey-update-filters"
           style={{
             display: "grid",
             gridTemplateColumns: "minmax(280px, 2fr) repeat(3, minmax(150px, 1fr))",
@@ -329,6 +330,7 @@ export default function SurveyBasedUpdates() {
 
       {selectedTopicKey && (
         <div
+          className="survey-update-layout"
           style={{
             display: "grid",
             gridTemplateColumns: "minmax(0, 1.7fr) minmax(320px, 0.9fr)",

@@ -26,10 +26,10 @@ import "../styles/Sidebar.css";
 import { logout, getRole } from "../utils/auth";
 
 const UPLOAD_ITEMS = [
-  { to: "/upload/files", label: "Upload Files", Icon: FaFileUpload },
+  { to: "/upload/files", label: "Upload Source Data", Icon: FaFileUpload },
   {
     to: "/upload/survey-based-updates",
-    label: "Survey-Based Updates",
+    label: "Scorecard Survey Responses",
     Icon: FaClipboardList,
   },
   {
@@ -39,7 +39,7 @@ const UPLOAD_ITEMS = [
   },
   {
     to: "/upload/its-deployment-pre-survey",
-    label: "ITS Deployment Pre-Survey",
+    label: "ITS Deployment Survey",
     Icon: FaPoll,
   },
 ];
@@ -120,7 +120,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           onClick={() => setShowUploadSubMenu((current) => !current)}
         >
           <FaUpload className="icon" />
-          <span className="link-text">Upload &amp; Update</span>
+          <span className="link-text">Data Collection &amp; Review</span>
           {showUploadSubMenu ? <FaChevronUp /> : <FaChevronDown />}
         </li>
 
@@ -142,7 +142,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           onClick={() => setShowScoreSubMenu((current) => !current)}
         >
           <FaListAlt className="icon" />
-          <span className="link-text">Scorecards</span>
+          <span className="link-text">Scorecard Analysis</span>
           {showScoreSubMenu ? <FaChevronUp /> : <FaChevronDown />}
         </li>
 
